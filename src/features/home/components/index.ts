@@ -1,0 +1,9 @@
+export { HomeHero } from "./HomeHero";
+export { CategoryBannerCarousel } from "./CategoryBannerCarousel";
+export { HomeFeaturedCategories } from "./HomeFeaturedCategories";
+export { NewArrivals } from "./NewArrivals";
+export { HomeBrandBanner } from "./HomeBrandBanner";
+export { BestSellers } from "./BestSellers";
+export { WhySelfAura } from "./WhySelfAura";
+export { TrustHighlights } from "./TrustHighlights";
+export { NewsletterCta } from "./NewsletterCta";
