@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "./Container";
+import { BrandMark } from "./BrandMark";
 import { MainNavigation } from "@/components/navigation/MainNavigation";
 import { MobileNavigation } from "@/components/navigation/MobileNavigation";
 import { HeaderSearch } from "@/components/navigation/HeaderSearch";
@@ -14,11 +15,7 @@ function Wordmark({ className }: { className?: string }) {
       className={`flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${className ?? ""}`}
       aria-label="Self Aura - home"
     >
-      <img
-        src="/images/logo2.png"
-        alt="Self Aura"
-        className="h-6 w-6 rounded-lg object-cover"
-      />
+      <BrandMark />
       <span className="font-display text-xl font-medium tracking-wide text-foreground">
         Self&nbsp;Aura
       </span>

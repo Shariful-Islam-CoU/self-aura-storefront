@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Container } from "./Container";
+import { BrandMark } from "./BrandMark";
 import {
   footerShopLinks,
   footerCareLinks,
@@ -40,6 +41,7 @@ export function Footer() {
               className="flex w-fit items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
               aria-label="Self Aura - home"
             >
+              <BrandMark />
               <span className="font-display text-xl font-medium tracking-wide text-foreground">
                 Self&nbsp;Aura
               </span>
