@@ -116,7 +116,7 @@ function readMediaOrigins(): RemotePattern[] {
   };
 
   // The API origin is always a trusted image source.
-  addFromUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api");
+  addFromUrl(process.env.NEXT_PUBLIC_API_URL );
 
   // Optional extra trusted media origins.
   for (const entry of (process.env.NEXT_PUBLIC_MEDIA_HOSTS ?? "").split(",")) {
