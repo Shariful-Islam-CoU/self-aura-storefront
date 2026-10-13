@@ -116,7 +116,7 @@ function readMediaOrigins(): RemotePattern[] {
   };
 
   // The API origin is always a trusted image source.
-  addFromUrl(process.env.NEXT_PUBLIC_API_URL );
+  addFromUrl(process.env.NEXT_PUBLIC_API_URL ?? "https://self-aura-backend.onrender.com/api");
 
   // Optional extra trusted media origins.
   for (const entry of (process.env.NEXT_PUBLIC_MEDIA_HOSTS ?? "").split(",")) {

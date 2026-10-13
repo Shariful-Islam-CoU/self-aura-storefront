@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+import { siteConfig } from "@/lib/config/env";
+const API_BASE = siteConfig.apiUrl;
 
 export interface Customer {
   name: string;
