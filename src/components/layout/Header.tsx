@@ -15,11 +15,11 @@ function Wordmark({ className }: { className?: string }) {
       className={`flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${className ?? ""}`}
       aria-label="Self Aura - home"
     >
-      <BrandMark />
-      <span className="font-display text-xl font-medium tracking-wide text-foreground">
+      <BrandMark className="h-10 w-10 sm:h-12 sm:w-12" />
+      <span className="font-display text-lg font-medium tracking-wide text-foreground sm:text-xl">
         Self&nbsp;Aura
       </span>
-      <span aria-hidden="true" className="mt-0.5 inline-block h-2 w-2 rotate-45 rounded-[2px] bg-accent" />
+      <span aria-hidden="true" className="mt-0.5 hidden h-2 w-2 rotate-45 rounded-[2px] bg-accent sm:inline-block" />
     </Link>
   );
 }

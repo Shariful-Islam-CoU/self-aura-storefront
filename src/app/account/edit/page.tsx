@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useRouter } from "next/navigation";
 
 export default function EditAccountPage() {
@@ -187,7 +188,7 @@ export default function EditAccountPage() {
     }
   };
 
-  if (loading) return <div className="py-8">Loading...</div>;
+  if (loading) return <LoadingState label="Loading your profile..." />;
 
   return (
     <div className="w-full max-w-2xl">
@@ -335,7 +336,7 @@ export default function EditAccountPage() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-3">
           <Button type="submit" isLoading={saving} disabled={saving || avatarUploading}>
             Save changes

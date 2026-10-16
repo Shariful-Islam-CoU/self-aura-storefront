@@ -144,7 +144,7 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
             autoComplete={mode === "register" ? "new-password" : "current-password"}
             minLength={mode === "register" ? 8 : undefined}
           />
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="w-full" size="lg" isLoading={loading} disabled={loading}>
             {mode === "login" ? "Sign in" : "Create account"}

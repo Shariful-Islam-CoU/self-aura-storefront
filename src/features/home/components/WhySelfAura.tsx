@@ -47,15 +47,17 @@ export function WhySelfAura() {
 
         <ul role="list" className="mx-auto mt-12 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {values.map((value, index) => (
-            <Reveal key={value.title} delay={index * 70}>
-              <li className="h-full rounded-lg border border-border bg-background p-6">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
-                  <value.icon className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <h3 className="mt-4 font-display text-lg text-foreground">{value.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
-              </li>
-            </Reveal>
+            <li key={value.title} className="h-full">
+              <Reveal delay={index * 70} className="h-full">
+                <div className="h-full rounded-lg border border-border bg-background p-6">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <value.icon className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-4 font-display text-lg text-foreground">{value.title}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{value.description}</p>
+                </div>
+              </Reveal>
+            </li>
           ))}
         </ul>
       </Container>

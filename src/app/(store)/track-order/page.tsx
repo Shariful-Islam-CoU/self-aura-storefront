@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { TrackOrderView } from "@/features/checkout/components/TrackOrderView";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 function TrackOrderViewWrapper() {
   return <TrackOrderView />;
@@ -7,7 +8,7 @@ function TrackOrderViewWrapper() {
 
 export default function TrackOrderPage() {
   return (
-    <Suspense fallback={<div className="py-10 text-center">Loading...</div>}>
+    <Suspense fallback={<LoadingState label="Loading order tracking..." />}>
       <TrackOrderViewWrapper />
     </Suspense>
   );

@@ -4,7 +4,7 @@
  * Placeholder notes:
  * - "Categories" and "New Arrivals" point at homepage sections until the
  *   backend category/product APIs (and their dedicated pages) exist.
- * - "About" points at the brand banner on the homepage.
+ * - "About" points at the social "Connect" section on the homepage.
  * - Social + legal links are placeholders until real URLs/pages are known.
  */
 
@@ -18,7 +18,7 @@ export const mainNavLinks: NavLink[] = [
   { label: "Shop", href: "/shop" },
   { label: "Categories", href: "/#categories" },
   { label: "New Arrivals", href: "/#new-arrivals" },
-  { label: "About", href: "/#story" },
+  { label: "About", href: "/#connect" },
 ];
 
 /** Footer helper links. */

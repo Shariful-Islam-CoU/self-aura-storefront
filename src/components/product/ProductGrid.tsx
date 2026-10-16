@@ -13,31 +13,51 @@ interface ProductGridProps extends HTMLAttributes<HTMLUListElement> {
    * `ProductCard` everywhere.
    */
   dense?: boolean;
+  /**
+   * Show the in-card purchase controls (quantity + Add to bag). On by default
+   * for product grids. Interactive cards need the full card width for the
+   * quantity stepper and button to share a row, so the grid is a single column
+   * on phones and two columns from `sm` up.
+   */
+  interactive?: boolean;
 }
 
 /**
- * Responsive product grid: 2 columns on mobile, 3 on tablet, 4 on desktop.
- * With `dense`, 3 on tablet/desktop and 4 only on extra-wide screens.
+ * Responsive product grid.
+ *
+ * - Interactive (default): 1 column on mobile, 2 from `sm`, 3 from `md` and 4
+ *   on wide screens; `dense` delays the fourth column until extra-wide.
+ * - Non-interactive: 2 columns on mobile, matching a browse-only tile.
+ * - Demo cards never get purchase controls (their ids are not real products).
  */
 export function ProductGrid({
   products,
   demo = false,
   dense = false,
+  interactive = true,
   className,
   ...props
 }: ProductGridProps) {
+  const withPurchase = interactive && !demo;
+
   return (
     <ul
       role="list"
       className={cn(
-        "grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 md:grid-cols-3",
+        "grid gap-x-4 gap-y-10 sm:gap-x-6 md:grid-cols-3",
+        withPurchase ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2",
         dense ? "xl:grid-cols-4" : "lg:grid-cols-4",
         className
       )}
       {...props}
     >
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} demo={demo} />
+        <ProductCard
+          key={product.id}
+          product={product}
+          demo={demo}
+          interactive={withPurchase}
+        />
       ))}
     </ul>
   );

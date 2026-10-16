@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { OrderListView } from "@/features/account/components/OrderListView";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { orderService } from "@/services/orderService";
 import type { CustomerOrderListData } from "@/types/order";
 
@@ -50,7 +51,7 @@ export default function OrdersPage() {
         <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground">
           My orders
         </h1>
-        <div className="mt-8">Loading orders...</div>
+        <LoadingState label="Loading orders..." className="mt-8" />
       </div>
     );
   }
@@ -77,7 +78,7 @@ export default function OrdersPage() {
       <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground">
         My orders
       </h1>
-      <Suspense fallback={<div className="mt-8">Loading orders...</div>}>
+      <Suspense fallback={<LoadingState label="Loading orders..." className="mt-8" />}>
         {state.ordersData ? (
           <OrderListView initialOrders={state.ordersData} />
         ) : (

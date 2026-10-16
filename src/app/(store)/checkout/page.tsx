@@ -6,7 +6,7 @@ import { CheckoutPageView } from "@/features/checkout/components/CheckoutPageVie
 import { LoginModal } from "@/components/ui/LoginModal";
 import { customerAuthService } from "@/services/customerAuthService";
 
-export function CheckoutPageClient() {
+function CheckoutPageClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);

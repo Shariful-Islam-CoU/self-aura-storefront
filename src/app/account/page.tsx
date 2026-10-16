@@ -5,6 +5,7 @@ import { customerAuthService, Customer } from "@/services/customerAuthService";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { Avatar } from "@/components/ui/Avatar";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -40,13 +41,13 @@ export default function AccountPage() {
   };
 
   if (loading) {
-    return <div className="py-8">Loading...</div>;
+    return <LoadingState label="Loading your account..." />;
   }
 
   if (error) {
     return (
       <div className="py-8">
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
         <Button className="mt-4" onClick={() => (window.location.href = "/login")}>
           Sign in again
         </Button>

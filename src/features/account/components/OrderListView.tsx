@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/Input";
-import { SelectRoot as Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
+import { Select } from "@/components/ui/Select";
 import { Separator } from "@/components/ui/Separator";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -266,25 +266,22 @@ export function OrderListView({ initialOrders }: OrderListViewProps) {
     <div className="space-y-6">
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             placeholder="Search orders..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-64 max-w-[256px]"
+            className="w-full sm:w-64"
+            aria-label="Search orders"
           />
-          <Select value={statusFilter} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              {statusOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full sm:w-[180px]">
+            <Select
+              value={statusFilter}
+              onChange={(e) => handleStatusChange(e.target.value)}
+              options={statusOptions}
+              aria-label="Filter orders by status"
+            />
+          </div>
         </div>
         <div className="text-sm text-muted-foreground">
           Showing {filteredOrders?.length} of {pagination?.total} order{pagination?.total !== 1 ? "s" : ""}

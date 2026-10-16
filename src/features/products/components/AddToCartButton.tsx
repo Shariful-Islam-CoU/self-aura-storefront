@@ -12,6 +12,10 @@ interface AddToCartButtonProps {
   disabled?: boolean;
   status?: AddToCartStatus;
   onClick?: () => void;
+  /** Button scale. `lg` (default) is the details-page action; `sm` fits a card. */
+  size?: "sm" | "md" | "lg";
+  /** Layout classes. Defaults to the details-page full-width action. */
+  className?: string;
 }
 
 /**
@@ -22,22 +26,29 @@ interface AddToCartButtonProps {
  * state. Persistence arrives with the Cart module — until then the transient
  * "Added to bag" state is UI-only and reset shortly after.
  */
-export function AddToCartButton({ disabled = false, status = "idle", onClick }: AddToCartButtonProps) {
+export function AddToCartButton({
+  disabled = false,
+  status = "idle",
+  onClick,
+  size = "lg",
+  className = "w-full sm:flex-1",
+}: AddToCartButtonProps) {
   const isAdding = status === "adding";
   const isAdded = status === "added";
+  const iconClass = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
     <Button
-      size="lg"
-      className="w-full sm:flex-1"
+      size={size}
+      className={className}
       disabled={disabled || isAdding}
       isLoading={isAdding}
       onClick={onClick}
     >
       {isAdded ? (
-        <Check className="h-4 w-4" aria-hidden="true" />
+        <Check className={iconClass} aria-hidden="true" />
       ) : (
-        <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+        <ShoppingBag className={iconClass} aria-hidden="true" />
       )}
       {isAdded ? "Added to bag" : "Add to bag"}
     </Button>

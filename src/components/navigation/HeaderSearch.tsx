@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Portal } from "@/components/ui/Portal";
 import { catalogHref, MAX_SEARCH_LENGTH } from "@/features/products/lib/catalogParams";
 
 /**
@@ -68,53 +69,58 @@ export function HeaderSearch() {
       </Button>
 
       {open && (
-        <div className="fixed inset-0 z-40">
-          {/* Clicking away dismisses without navigating. */}
-          <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-          <div
-            id="header-search-panel"
-            className="relative border-b border-border bg-background shadow-lg"
-          >
-            <form
-              role="search"
-              onSubmit={handleSubmit}
-              className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-4 sm:px-6"
+        // Portaled to <body>: the header's `backdrop-blur` makes it a
+        // containing block for `position: fixed`, which would clip this
+        // viewport-covering overlay to the header strip.
+        <Portal>
+          <div className="fixed inset-0 z-40">
+            {/* Clicking away dismisses without navigating. */}
+            <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={() => setOpen(false)} />
+            <div
+              id="header-search-panel"
+              className="relative border-b border-border bg-background shadow-lg"
             >
-              <label htmlFor="header-search-input" className="sr-only">
-                Search products
-              </label>
-              <div className="relative flex-1">
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden="true"
-                />
-                <Input
-                  ref={inputRef}
-                  id="header-search-input"
-                  type="search"
-                  value={term}
-                  onChange={(event) => setTerm(event.target.value)}
-                  placeholder="Search products"
-                  autoComplete="off"
-                  maxLength={MAX_SEARCH_LENGTH}
-                  className="h-11 pl-9"
-                />
-              </div>
-              <Button type="submit" className="h-11">
-                Search
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setOpen(false)}
-                aria-label="Close search"
-                className="h-11 w-11"
+              <form
+                role="search"
+                onSubmit={handleSubmit}
+                className="mx-auto flex w-full max-w-2xl items-center gap-3 px-4 py-4 sm:px-6"
               >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </form>
+                <label htmlFor="header-search-input" className="sr-only">
+                  Search products
+                </label>
+                <div className="relative flex-1">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                  <Input
+                    ref={inputRef}
+                    id="header-search-input"
+                    type="search"
+                    value={term}
+                    onChange={(event) => setTerm(event.target.value)}
+                    placeholder="Search products"
+                    autoComplete="off"
+                    maxLength={MAX_SEARCH_LENGTH}
+                    className="h-11 pl-9"
+                  />
+                </div>
+                <Button type="submit" className="h-11">
+                  Search
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close search"
+                  className="h-11 w-11"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </Button>
+              </form>
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
     </>
   );

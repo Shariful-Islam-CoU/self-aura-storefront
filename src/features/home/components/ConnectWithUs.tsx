@@ -16,7 +16,11 @@ export async function ConnectWithUs() {
   if (!socials || !hasAnySocial(socials)) return null;
 
   return (
-    <section aria-labelledby="connect-heading" className="border-t border-border bg-card py-16 sm:py-20">
+    <section
+      id="connect"
+      aria-labelledby="connect-heading"
+      className="scroll-mt-24 border-t border-border bg-card py-16 sm:py-20"
+    >
       <Container>
         <Reveal>
           <div className="mx-auto max-w-xl text-center">

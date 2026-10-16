@@ -33,10 +33,9 @@ export function TrackOrderView() {
     router.push(`/account/orders/${encodeURIComponent(trimmed)}`);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      goToOrder();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    goToOrder();
   };
 
   return (
@@ -57,34 +56,35 @@ export function TrackOrderView() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1" htmlFor="track-order-number">
-                Order Number
-              </label>
-              <Input
-                id="track-order-number"
-                placeholder="e.g. SA-000001"
-                value={orderNumber}
-                onChange={(e) => setOrderNumber(e.target.value)}
-                onKeyPress={handleKeyPress}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                You&apos;ll find this in your order confirmation and in{" "}
-                <Link href="/account/orders" className="underline underline-offset-2">
-                  My orders
-                </Link>
-                .
-              </p>
-            </div>
-            <Button
-              onClick={goToOrder}
-              disabled={!orderNumber.trim()}
-              className="w-full sm:w-auto"
-              size="lg"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              View Order Status
-            </Button>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1" htmlFor="track-order-number">
+                  Order Number
+                </label>
+                <Input
+                  id="track-order-number"
+                  placeholder="e.g. SA-000001"
+                  value={orderNumber}
+                  onChange={(e) => setOrderNumber(e.target.value)}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  You&apos;ll find this in your order confirmation and in{" "}
+                  <Link href="/account/orders" className="underline underline-offset-2">
+                    My orders
+                  </Link>
+                  .
+                </p>
+              </div>
+              <Button
+                type="submit"
+                disabled={!orderNumber.trim()}
+                className="w-full sm:w-auto"
+                size="lg"
+              >
+                <Search className="h-4 w-4 mr-2" />
+                View Order Status
+              </Button>
+            </form>
 
             {!isSignedIn && (
               <div className="flex items-start gap-3 rounded-lg bg-muted/60 p-4 text-sm">

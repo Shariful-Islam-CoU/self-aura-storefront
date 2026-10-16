@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { AccountUnavailableView } from "@/features/account/components/AccountUnavailableView";
 import { OrderDetailView } from "@/features/account/components/OrderDetailView";
 import { orderService } from "@/services/orderService";
@@ -70,7 +71,7 @@ export function OrderDetailClient({ orderNumber }: OrderDetailClientProps) {
           Order {orderNumber}
         </h1>
         <div className="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
-          <p className="text-sm text-muted-foreground">Loading order details...</p>
+          <LoadingState label="Loading order details..." />
         </div>
       </div>
     );

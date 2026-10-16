@@ -12,6 +12,8 @@ export interface QuantitySelectorProps {
   max?: number;
   disabled?: boolean;
   id?: string;
+  /** Visual scale. `sm` is the compact stepper used inside product cards. */
+  size?: "sm" | "md";
 }
 
 /** Hard ceiling to keep values reasonable even without stock data. */
@@ -34,12 +36,20 @@ export function QuantitySelector({
   max,
   disabled = false,
   id,
+  size = "md",
 }: QuantitySelectorProps) {
   const canDecrease = !disabled && value > min;
   const canIncrease = !disabled && value < (max ?? HARD_MAX);
 
-  const stepButtonClass =
-    "flex h-12 w-12 items-center justify-center text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  const stepButtonClass = cn(
+    "flex items-center justify-center text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+    size === "sm" ? "h-9 w-8" : "h-12 w-12"
+  );
+  const valueClass = cn(
+    "flex items-center justify-center text-sm font-medium tabular-nums text-foreground",
+    size === "sm" ? "w-8" : "w-12"
+  );
+  const iconClass = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
     <div
@@ -57,12 +67,12 @@ export function QuantitySelector({
         aria-label="Decrease quantity"
         className={stepButtonClass}
       >
-        <Minus className="h-4 w-4" aria-hidden="true" />
+        <Minus className={iconClass} aria-hidden="true" />
       </button>
       <span
         id={id}
         aria-live="polite"
-        className="flex w-12 items-center justify-center text-sm font-medium tabular-nums text-foreground"
+        className={valueClass}
       >
         {value}
       </span>
@@ -73,7 +83,7 @@ export function QuantitySelector({
         aria-label="Increase quantity"
         className={stepButtonClass}
       >
-        <Plus className="h-4 w-4" aria-hidden="true" />
+        <Plus className={iconClass} aria-hidden="true" />
       </button>
     </div>
   );

@@ -8,6 +8,7 @@ import { ProductImageFrame } from "./ProductImageFrame";
 import { getAvailability } from "@/features/products/lib/availability";
 import { getPrimaryImage } from "@/features/products/lib/media";
 import { WishlistToggle } from "@/features/wishlist/components/WishlistToggle";
+import { ProductCardPurchase } from "./ProductCardPurchase";
 import type { Product } from "@/types";
 
 interface ProductCardProps {
@@ -24,6 +25,13 @@ interface ProductCardProps {
    * "Add to bag"). Left undefined everywhere else, so the card is unchanged.
    */
   footerAction?: React.ReactNode;
+  /**
+   * Render the in-grid purchase layout: name + price on one row, then a
+   * quantity stepper + Add to bag (in stock) or the category + "Out of stock"
+   * (out of stock). Off by default so the wishlist card and demo/preview
+   * cards keep their existing markup.
+   */
+  interactive?: boolean;
 }
 
 /**
@@ -50,7 +58,7 @@ interface ProductCardProps {
  * link — nothing interactive is nested inside an anchor, so tapping the heart
  * never triggers navigation.
  */
-export function ProductCard({ product, demo = false, priority = false, footerAction }: ProductCardProps) {
+export function ProductCard({ product, demo = false, priority = false, footerAction, interactive = false }: ProductCardProps) {
   const primaryImage = getPrimaryImage(product.images);
   const discount = product.compareAtPrice
     ? Math.round(((product.compareAtPrice - product.sellingPrice) / product.compareAtPrice) * 100)
@@ -66,6 +74,11 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
   // fallback. An empty `alt` would be announced as an unlabelled image, which
   // is worse than a slightly generic one.
   const imageAlt = primaryImage?.alt?.trim() || product.name;
+  // The interactive grid is a single column on phones, so the image spans the
+  // viewport there; the browse-only card stays two-up.
+  const imageSizes = interactive
+    ? "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
+    : "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw";
 
   return (
     <li className="group">
@@ -76,7 +89,7 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
         <ProductImageFrame
           src={primaryImage?.url}
           alt={imageAlt}
-          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          sizes={imageSizes}
           priority={priority}
           className="aspect-[4/5]"
           imageClassName="transition-transform duration-700 ease-out group-hover:scale-[1.04]"
@@ -139,28 +152,62 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
         </ProductImageFrame>
 
         {/* Details */}
-        <div className="mt-4 space-y-1.5">
-          <p className="text-xs tracking-wide text-muted-foreground">{product.category.name}</p>
-          <h3 className="text-sm font-medium leading-snug text-foreground">
-            <Link
-              href={href}
-              className="line-clamp-1 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              {product.name}
-            </Link>
-          </h3>
-          <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-sm font-semibold text-foreground">
-              {formatPrice(product.sellingPrice)}
-            </span>
-            {product.compareAtPrice && (
-              <span className="text-xs text-muted-foreground line-through">
-                {formatPrice(product.compareAtPrice)}
-              </span>
+        {interactive && !demo ? (
+          <div className="mt-4 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="min-w-0 text-sm font-medium leading-snug text-foreground">
+                <Link
+                  href={href}
+                  className="line-clamp-1 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                  {product.name}
+                </Link>
+              </h3>
+              <p className="shrink-0 text-right text-sm leading-tight">
+                <span className="block font-semibold text-foreground">
+                  {formatPrice(product.sellingPrice)}
+                </span>
+                {product.compareAtPrice && (
+                  <span className="block text-xs text-muted-foreground line-through">
+                    {formatPrice(product.compareAtPrice)}
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {soldOut ? (
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="min-w-0 truncate text-muted-foreground">{product.category.name}</span>
+                <span className="shrink-0 font-medium text-destructive">Out of stock</span>
+              </div>
+            ) : (
+              <ProductCardPurchase product={product} />
             )}
-          </p>
-          {footerAction && <div className="pt-1">{footerAction}</div>}
-        </div>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-1.5">
+            <p className="text-xs tracking-wide text-muted-foreground">{product.category.name}</p>
+            <h3 className="text-sm font-medium leading-snug text-foreground">
+              <Link
+                href={href}
+                className="line-clamp-1 transition-colors hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                {product.name}
+              </Link>
+            </h3>
+            <p className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-sm font-semibold text-foreground">
+                {formatPrice(product.sellingPrice)}
+              </span>
+              {product.compareAtPrice && (
+                <span className="text-xs text-muted-foreground line-through">
+                  {formatPrice(product.compareAtPrice)}
+                </span>
+              )}
+            </p>
+            {footerAction && <div className="pt-1">{footerAction}</div>}
+          </div>
+        )}
       </article>
     </li>
   );
