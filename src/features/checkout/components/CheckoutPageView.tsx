@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useCart } from "@/features/cart/hooks/useCart";
 import { CheckoutForm } from "./CheckoutForm";
 import { CheckoutSummary } from "./CheckoutSummary";
+import { CheckoutPreviewProvider } from "./CheckoutPreviewContext";
 
 /**
  * /checkout page body. Client component driven by the persisted cart.
@@ -60,10 +61,12 @@ export function CheckoutPageView() {
           />
         </div>
       ) : (
-        <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14">
-          <CheckoutForm />
-          <CheckoutSummary className="lg:sticky lg:top-24" />
-        </div>
+        <CheckoutPreviewProvider>
+          <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-14">
+            <CheckoutForm />
+            <CheckoutSummary className="lg:sticky lg:top-24" />
+          </div>
+        </CheckoutPreviewProvider>
       )}
     </Container>
   );

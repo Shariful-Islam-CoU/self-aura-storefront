@@ -101,23 +101,19 @@ export interface AppliedCoupon {
 /**
  * Authoritative delivery quote returned by the backend checkout preview.
  *
- * Mirrors `deliveryService.DeliveryQuote` on the backend. Every field here is
- * computed by the backend from the active Delivery Zone configuration — the
- * storefront performs no delivery maths of its own and cannot adjust any of
- * these values before submitting the order.
+ * Mirrors the new simplified delivery rule format. Customer selects a rule at
+ * checkout; the backend returns the selected rule's price and ETA.
  */
 export interface CalculatedDelivery {
-  zoneId: string;
-  zoneCode: string;
-  zoneName: string;
-  /** The coverage rule that selected the zone (postalCode / area / district …). */
-  matchedBy: string;
-  /** The configured fee before any free-delivery reduction. */
-  baseDeliveryFee: number;
-  /** What the customer is actually charged for delivery. */
+  ruleId: string;
+  ruleName: string;
+  /** The rule's configured price (0 = FREE). */
+  price: number;
+  /** What the customer is actually charged for delivery (same as price). */
   appliedDeliveryFee: number;
+  /** Always true when price is 0. */
   freeDeliveryApplied: boolean;
-  /** null when the zone does not offer free delivery. */
+  /** null (no free-delivery threshold in simplified system). */
   freeDeliveryThreshold: number | null;
   estimatedMinDays: number;
   estimatedMaxDays: number;

@@ -1,100 +1,79 @@
-import { Info } from "lucide-react";
+import { Info, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/utils/format";
 import type { PublicDeliveryRule } from "../services/deliveryService";
 
 /**
- * The customer-facing "Delivery charges" reference list (Step 19A).
+ * Interactive delivery rule selection for checkout.
  *
- * Renders exactly what the backend publishes via the public delivery-rules
- * endpoint - no zone codes, priorities or internal ids. The list is
- * informative (which areas cost what); the live checkout preview, not this
- * list, decides the fee actually quoted for an address. That split keeps the
- * storefront honest: nothing here is ever sent back to the backend as money.
- *
- * Bangla support: when the shopkeeper configured a Bangla name or description,
- * it is shown first and the English variant goes muted underneath (and vice
- * versa when only English exists).
+ * Renders radio buttons for each active delivery rule. The customer selects
+ * one rule, and the selection is passed to the backend for pricing.
+ * Rules are sorted by price descending (highest first) - the default.
  */
-
-function RuleName({ rule }: { rule: PublicDeliveryRule }) {
-  const hasBn = Boolean(rule.nameBn);
-  if (!hasBn) {
-    return <span className="font-medium text-foreground">{rule.name}</span>;
-  }
-  return (
-    <span className="space-x-1">
-      <span className="font-medium text-foreground">{rule.nameBn}</span>
-      <span className="text-xs font-normal text-muted-foreground">({rule.name})</span>
-    </span>
-  );
-}
-
-function RuleCoverage({ rule }: { rule: PublicDeliveryRule }) {
-  const parts = [rule.area, rule.district, rule.country].filter(Boolean);
-  return <span className="text-xs text-muted-foreground">{parts.join(" · ")}</span>;
-}
-
-function RuleDescription({ rule }: { rule: PublicDeliveryRule }) {
-  const hasBn = Boolean(rule.descriptionBn);
-  if (!hasBn) {
-    if (!rule.description) return null;
-    return <p className="text-xs text-muted-foreground">{rule.description}</p>;
-  }
-  return (
-    <p className="text-xs text-muted-foreground">
-      <span>{rule.descriptionBn}</span>
-      {rule.description && (
-        <span className="ml-1 text-muted-foreground/80">({rule.description})</span>
-      )}
-    </p>
-  );
-}
-
 export function DeliveryRulesList({
   rules,
+  selectedRuleId,
+  onSelectRule,
   className,
 }: {
   rules: PublicDeliveryRule[];
+  selectedRuleId: string | null;
+  onSelectRule: (ruleId: string) => void;
   className?: string;
 }) {
   return (
     <div
       className={cn("rounded-md border border-border bg-card p-4", className)}
-      aria-label="Delivery charges"
+      aria-label="Delivery options"
+      role="radiogroup"
     >
       <div className="flex items-center gap-2">
-        <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <h4 className="text-sm font-semibold text-foreground">Delivery charges</h4>
+        <Truck className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <h4 className="text-sm font-semibold text-foreground">Delivery option</h4>
       </div>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        Delivery charges depend on the area you choose and are confirmed at
-        checkout. Your area is matched against these rules automatically.
+        Select a delivery option. The highest price is selected by default. Admin can
+        correct wrong selections on the order page.
       </p>
 
       {rules.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          Delivery charges are confirmed at checkout based on your delivery area.
+          No delivery options available. Please contact us for manual arrangement.
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-border">
+        <ul className="pt-3 divide-y divide-border">
           {rules.map((rule) => (
             <li
-              key={`${rule.country}:${rule.district ?? ""}:${rule.area ?? ""}:${rule.name}:${rule.charge}`}
-              className="flex items-start justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+              key={rule.id}
+              className={cn(
+                "flex items-start justify-between gap-3 py-2.5 first:pt-3 last:pb-0 cursor-pointer transition-colors rounded-md px-2 -mx-2",
+                selectedRuleId === rule.id ? "bg-accent/5" : "hover:bg-muted/30"
+              )}
+              onClick={() => onSelectRule(rule.id)}
             >
-              <div className="min-w-0 space-y-0.5">
-                <RuleName rule={rule} />
-                <RuleCoverage rule={rule} />
-                <RuleDescription rule={rule} />
+              <input
+                type="radio"
+                name="deliveryRule"
+                value={rule.id}
+                checked={selectedRuleId === rule.id}
+                onChange={() => onSelectRule(rule.id)}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label={rule.name}
+              />
+              <div className="min-w-0 space-y-0.5 flex-1">
+                <span className="font-medium text-foreground pr-2">{rule.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {rule.estimatedMinDays}–{rule.estimatedMaxDays} days
+                </span>
               </div>
               <span
                 className={cn(
                   "shrink-0 text-sm font-semibold tabular-nums",
-                  rule.charge === 0 ? "text-success" : "text-foreground"
+                  rule.price === 0 ? "text-success" : "text-foreground"
                 )}
               >
-                {rule.charge === 0 ? "Free" : formatPrice(rule.charge)}
+                {rule.price === 0 ? "FREE" : formatPrice(rule.price)}
               </span>
             </li>
           ))}

@@ -64,7 +64,7 @@ function isOrderResponse(value: unknown): value is OrderResponse {
  * Only what the customer controls is sent: product ids, quantities, the
  * structured delivery address and the payment claim. There are deliberately no
  * money fields - no subtotal, discount or delivery charge. The backend
- * re-reads prices, revalidates the coupon, resolves the delivery zone and
+ * re-reads prices, revalidates the coupon, uses the selected delivery rule and
  * computes the total itself, so anything the browser sent about price would be
  * ignored (and, on the public schema, rejected).
  *
@@ -75,7 +75,8 @@ function isOrderResponse(value: unknown): value is OrderResponse {
  */
 export function buildCreateOrderRequest(
   values: CheckoutFormValues,
-  items: CartItem[]
+  items: CartItem[],
+  selectedRuleId?: string
 ): CreateOrderRequest {
   const { customer, address } = values;
   const note = address.deliveryNote.trim();
@@ -100,6 +101,7 @@ export function buildCreateOrderRequest(
     },
     note: note || undefined,
     source: "website",
+    selectedRuleId,
     ...(customer.facebookName?.trim()
       ? { facebookName: customer.facebookName.trim() }
       : {}),

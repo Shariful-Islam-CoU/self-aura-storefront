@@ -5,9 +5,9 @@ import {
   footerShopLinks,
   footerCareLinks,
   footerAboutLinks,
-  footerSocialLinks,
   footerLegalLinks,
 } from "@/constants/navigation";
+import { FooterSocialColumn } from "@/features/home/components/SocialConnect";
 
 function FooterLinkColumn({ heading, links }: { heading: string; links: { label: string; href: string }[] }) {
   return (
@@ -57,8 +57,8 @@ export function Footer() {
           <FooterLinkColumn heading="Customer Care" links={footerCareLinks} />
           <FooterLinkColumn heading="About" links={footerAboutLinks} />
 
-          {/* Social - placeholder channels until real profiles exist */}
-          <FooterLinkColumn heading="Social" links={footerSocialLinks} />
+          {/* Social - admin-managed URLs; the column hides when none are set */}
+          <FooterSocialColumn />
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">

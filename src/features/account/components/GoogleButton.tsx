@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 interface GoogleButtonProps {
-  onSuccess: (credential: string) => void;
+  onSuccess: (credential: string, profile?: { picture?: string }) => void;
   onError?: () => void;
 }
 
 let isGoogleInitialized = false;
-let googleInitPromise: Promise<void> | null = null;
 
 export function GoogleButton({ onSuccess, onError }: GoogleButtonProps) {
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -46,7 +45,15 @@ export function GoogleButton({ onSuccess, onError }: GoogleButtonProps) {
           client_id: clientId,
           callback: (response: any) => {
             if (response?.credential) {
-              onSuccess(response.credential);
+              // Decode the JWT to get profile info including picture
+              let profile: { picture?: string } | undefined;
+              try {
+                const payload = JSON.parse(atob(response.credential.split('.')[1]));
+                profile = { picture: payload.picture };
+              } catch (e) {
+                console.warn("Failed to decode Google credential", e);
+              }
+              onSuccess(response.credential, profile);
             } else {
               onError?.();
             }
@@ -54,8 +61,8 @@ export function GoogleButton({ onSuccess, onError }: GoogleButtonProps) {
           // One Tap configuration
           auto_select: false,
           cancel_on_tap_outside: true,
-          // Enable FedCM (Federal Credential Management) - modern browser API
-          // that handles identity federation without popup COOP issues
+          // Request profile scope to get picture
+          // Note: For One Tap, the picture is included in the ID token payload
           use_fedcm_for_prompt: true,
           use_fedcm_for_button: true,
         });
@@ -67,7 +74,7 @@ export function GoogleButton({ onSuccess, onError }: GoogleButtonProps) {
           (window as any).google.accounts.id.renderButton(buttonRef.current, {
             theme: "outline",
             size: "large",
-            width: 320, // Fixed width in pixels, not percentage
+            width: 320,
             type: "standard",
             shape: "rectangular",
             text: "continue_with",

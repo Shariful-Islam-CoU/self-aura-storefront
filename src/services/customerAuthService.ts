@@ -5,6 +5,9 @@ export interface Customer {
   name: string;
   email: string;
   phone?: string;
+  avatarUrl?: string | null;
+  facebookName?: string | null;
+  facebookProfileUrl?: string | null;
   defaultAddress?: any;
 }
 
@@ -36,11 +39,11 @@ export const customerAuthService = {
     return json.data;
   },
 
-  async googleAuth(credential: string): Promise<AuthResult> {
+  async googleAuth(credential: string, profile?: { picture?: string }): Promise<AuthResult> {
     const res = await fetch(`${API_BASE}/customer/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: credential, tokenId: credential }),
+      body: JSON.stringify({ idToken: credential, tokenId: credential, picture: profile?.picture }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Google auth failed');
@@ -104,6 +107,47 @@ export const customerAuthService = {
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Failed to update address');
+    return json.data;
+  },
+
+  async updateAvatar(token: string, avatarUrl: string | null): Promise<{ customer: Customer }> {
+    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ avatarUrl }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to update avatar');
+    return json.data;
+  },
+
+  async uploadAvatar(token: string, file: File): Promise<{ customer: Customer }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to upload avatar');
+    return json.data;
+  },
+
+  async deleteAvatar(token: string): Promise<{ customer: Customer }> {
+    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to delete avatar');
     return json.data;
   },
 };

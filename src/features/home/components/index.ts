@@ -7,3 +7,5 @@ export { BestSellers } from "./BestSellers";
 export { WhySelfAura } from "./WhySelfAura";
 export { TrustHighlights } from "./TrustHighlights";
 export { NewsletterCta } from "./NewsletterCta";
+export { ConnectWithUs } from "./ConnectWithUs";
+export { SocialConnect, SocialConnectLive, FooterSocialColumn } from "./SocialConnect";

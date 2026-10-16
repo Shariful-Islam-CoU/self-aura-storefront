@@ -65,7 +65,7 @@ export interface OrderItemInput {
  *
  * There are deliberately NO money fields - no `subtotal`, `discount` or
  * `deliveryCharge`. The backend re-reads prices, revalidates the coupon,
- * resolves the delivery zone and computes the total itself; the public schema
+ * uses the selected delivery rule and computes the total itself; the public schema
  * is designed so a customer cannot influence any of them.
  *
  * `customer` is omitted for guest checkout - the public endpoint resolves no
@@ -85,6 +85,8 @@ export interface CreateOrderRequest {
   senderPhone?: string;
   note?: string;
   source: OrderSource;
+  /** Selected delivery rule ID (from the simplified delivery rules system). */
+  selectedRuleId?: string;
 }
 
 /** One order line as returned by the backend. */

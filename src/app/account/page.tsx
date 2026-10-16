@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { customerAuthService, Customer } from "@/services/customerAuthService";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
+import { Avatar } from "@/components/ui/Avatar";
 
 export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -59,9 +60,15 @@ export default function AccountPage() {
   return (
     <div className="w-full">
       <p className="text-xs font-label uppercase tracking-[0.22em] text-accent">My account</p>
-      <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground">
-        Welcome, {customer?.name}
-      </h1>
+      <div className="mt-6 flex items-center gap-4">
+        <Avatar src={cust?.avatarUrl} name={customer?.name} size="xl" />
+        <div>
+          <h1 className="font-display text-3xl font-medium tracking-tight text-foreground">
+            Welcome, {customer?.name}
+          </h1>
+          <p className="text-sm text-muted-foreground">{customer?.email}</p>
+        </div>
+      </div>
       <div className="mt-8 rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="space-y-4">
           <div>

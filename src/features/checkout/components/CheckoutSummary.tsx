@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/Separator";
 import { ProductImageFrame } from "@/components/product/ProductImageFrame";
 import { formatPrice } from "@/lib/utils/format";
 import { useCart } from "@/features/cart/hooks/useCart";
+import { useSharedCheckoutPreview } from "./CheckoutPreviewContext";
 
 interface CheckoutSummaryProps {
   className?: string;
@@ -20,6 +21,7 @@ interface CheckoutSummaryProps {
  */
 export function CheckoutSummary({ className }: CheckoutSummaryProps) {
   const { items, subtotal } = useCart();
+  const preview = useSharedCheckoutPreview();
 
   return (
     <aside
@@ -66,20 +68,36 @@ export function CheckoutSummary({ className }: CheckoutSummaryProps) {
       <dl className="mt-5 space-y-2 text-sm">
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Subtotal</dt>
-          <dd className="font-semibold tabular-nums text-foreground">{formatPrice(subtotal)}</dd>
+          <dd className="font-semibold tabular-nums text-foreground">
+            {formatPrice(preview.totals?.subtotal ?? subtotal)}
+          </dd>
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">Delivery</dt>
-          <dd className="text-muted-foreground">Confirmed at checkout</dd>
+          <dd className="text-right">
+            <DeliveryFeeLabel preview={preview} />
+          </dd>
         </div>
+        {preview.totals && preview.totals.discount > 0 && (
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-muted-foreground">
+              Discount{preview.totals.coupon ? ` (${preview.totals.coupon.code})` : ""}
+            </dt>
+            <dd className="font-semibold tabular-nums text-success">
+              −{formatPrice(preview.totals.discount)}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <Separator className="mt-4" />
 
       <div className="mt-4 flex items-center justify-between gap-3">
-        <span className="font-label text-sm font-medium text-foreground">Estimated total</span>
+        <span className="font-label text-sm font-medium text-foreground">
+          {preview.totals ? "Total" : "Estimated total"}
+        </span>
         <span className="text-lg font-semibold tabular-nums text-foreground">
-          {formatPrice(subtotal)}
+          {formatPrice(preview.totals?.total ?? subtotal)}
         </span>
       </div>
       <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
@@ -87,5 +105,42 @@ export function CheckoutSummary({ className }: CheckoutSummaryProps) {
         order is placed. This summary is for review only.
       </p>
     </aside>
+  );
+}
+
+/**
+ * Delivery fee display - mirrors the logic in CheckoutForm/DeliveryFeeLabel
+ * Delivery charge is based on selected rule; location only needed for order placement
+ */
+function DeliveryFeeLabel({ preview }: { preview: ReturnType<typeof useSharedCheckoutPreview> }) {
+  if (preview.status === "calculating") {
+    return <span className="text-muted-foreground">Calculating…</span>;
+  }
+
+  if (preview.status === "unavailable") {
+    return <span className="font-medium text-destructive">Unavailable</span>;
+  }
+
+  if (preview.status === "error") {
+    return <span className="font-medium text-destructive">Not calculated</span>;
+  }
+
+  if (!preview.totals) {
+    if (preview.selectedRuleId) {
+      return <span className="text-muted-foreground">Calculating…</span>;
+    }
+    return <span className="text-muted-foreground">Select a delivery option</span>;
+  }
+
+  const { delivery } = preview.totals;
+
+  if (delivery.freeDeliveryApplied) {
+    return <span className="font-semibold text-success">FREE</span>;
+  }
+
+  return (
+    <span className="font-semibold tabular-nums text-foreground">
+      {formatPrice(delivery.appliedDeliveryFee)}
+    </span>
   );
 }

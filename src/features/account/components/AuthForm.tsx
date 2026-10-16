@@ -105,7 +105,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       <GoogleButton
-        onSuccess={async (credential) => {
+        onSuccess={async (credential, profile) => {
           try {
             const result = await customerAuthService.googleAuth(credential);
             localStorage.setItem("customer_token", result.token);

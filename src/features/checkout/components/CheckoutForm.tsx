@@ -50,6 +50,7 @@ import {
   type UseCheckoutPreviewResult,
 } from "../hooks/useCheckoutPreview";
 import { DeliveryRulesList } from "./DeliveryRulesList";
+import { useSetCheckoutPreview } from "./CheckoutPreviewContext";
 import {
   buildCreateOrderRequest,
   createOrder,
@@ -175,6 +176,32 @@ export function CheckoutForm() {
 
   /** True only when the backend has produced a usable quote. */
   const canPlaceOrder = preview.status === "ready" && preview.totals !== null;
+
+  // Share preview with CheckoutSummary via context - use stable reference
+  const setSharedPreview = useSetCheckoutPreview();
+  const sharedPreview = useMemo(() => ({
+    status: preview.status,
+    totals: preview.totals,
+    message: preview.message,
+    rules: preview.rules,
+    selectedRuleId: preview.selectedRuleId,
+    setSelectedRuleId: preview.setSelectedRuleId,
+    needsLocation: preview.needsLocation,
+    refresh: preview.refresh,
+  }), [
+    preview.status,
+    preview.totals,
+    preview.message,
+    preview.rules,
+    preview.selectedRuleId,
+    preview.setSelectedRuleId,
+    preview.needsLocation,
+    preview.refresh,
+  ]);
+
+  useEffect(() => {
+    setSharedPreview(sharedPreview);
+  }, [sharedPreview, setSharedPreview]);
 
   // Merchant payment configuration comes from the backend's public
   // payment-settings endpoint - never hardcoded. While it loads (or if it
@@ -315,7 +342,7 @@ export function CheckoutForm() {
     setSubmitError(null);
 
     try {
-      const request = buildCreateOrderRequest(values, items);
+      const request = buildCreateOrderRequest(values, items, preview.selectedRuleId ?? undefined);
       const token = localStorage.getItem("customer_token") ?? undefined;
       const order = await createOrder(request, token);
 
@@ -423,91 +450,33 @@ export function CheckoutForm() {
           onBlur={() => handleBlur("addressLine")}
         />
         {/*
-          District and area are the two fields the backend matches delivery
-          zones against. When a list of real districts/areas is available from
-          the published delivery rules, we use controlled selects to guide the
-          customer. Otherwise we fall back to free text (district/area are still
-          required). The preview request is the authority on whether a location
-          is deliverable - a select never replaces that.
+          District and area are part of the shipping address. The customer also
+          selects a delivery option in the Delivery step. Both are required.
         */}
-        {preview.districts.length > 0 ? (
-          <Select
-            id={FIELD_IDS.district}
-            label="District"
-            name="district"
-            required
-            value={values.address.district}
-            error={errors.district}
-            onChange={(event) => updateAddress("district", event.target.value)}
-            onBlur={() => handleBlur("district")}
-            options={preview.districts.map((district) => ({
-              value: district,
-              label: district,
-            }))}
-            placeholder="Select district"
-          />
-        ) : (
-          <Input
-            id={FIELD_IDS.district}
-            label="District"
-            name="district"
-            autoComplete="address-level1"
-            placeholder="District, e.g. Dhaka"
-            required
-            list="checkout-district-options"
-            value={values.address.district}
-            error={errors.district}
-            onChange={(event) => updateAddress("district", event.target.value)}
-            onBlur={() => handleBlur("district")}
-          />
-        )}
-        {preview.districts.length > 0 && (
-          <datalist id="checkout-district-options">
-            {preview.districts.map((district) => (
-              <option key={district} value={district} />
-            ))}
-          </datalist>
-        )}
-        {preview.areas.length > 0 ? (
-          <Select
-            id={FIELD_IDS.area}
-            label="Area / Thana"
-            name="area"
-            required
-            value={values.address.area}
-            error={errors.area}
-            onChange={(event) => updateAddress("area", event.target.value)}
-            onBlur={() => handleBlur("area")}
-            options={preview.areas.map((area) => ({
-              value: area,
-              label: area,
-            }))}
-            placeholder="Select area / thana"
-            helperText="The area helps us match the right delivery zone."
-          />
-        ) : (
-          <Input
-            id={FIELD_IDS.area}
-            label="Area / Thana"
-            name="area"
-            autoComplete="address-level2"
-            placeholder="Area, thana, e.g. Uttara"
-            required
-            list="checkout-area-options"
-            helperText="The area helps us match the right delivery zone."
-            value={values.address.area}
-            error={errors.area}
-            onChange={(event) => updateAddress("area", event.target.value)}
-            onBlur={() => handleBlur("area")}
-          />
-        )}
-        {preview.areas.length > 0 && (
-          <datalist id="checkout-area-options">
-            {preview.areas.map((area) => (
-              <option key={area} value={area} />
-            ))}
-          </datalist>
-        )}
+        <Input
+          id={FIELD_IDS.district}
+          label="District"
+          name="district"
+          autoComplete="address-level1"
+          placeholder="District, e.g. Dhaka"
+          required
+          value={values.address.district}
+          error={errors.district}
+          onChange={(event) => updateAddress("district", event.target.value)}
+          onBlur={() => handleBlur("district")}
+        />
+        <Input
+          id={FIELD_IDS.area}
+          label="Area / Thana"
+          name="area"
+          autoComplete="address-level2"
+          placeholder="Area, thana, e.g. Uttara"
+          required
+          value={values.address.area}
+          error={errors.area}
+          onChange={(event) => updateAddress("area", event.target.value)}
+          onBlur={() => handleBlur("area")}
+        />
         <div className="grid gap-5 sm:grid-cols-2">
           <Input
             id={FIELD_IDS.city}
@@ -560,10 +529,15 @@ export function CheckoutForm() {
       <CheckoutSection
         step={3}
         title="Delivery"
-        description="Delivery is calculated from your district and area."
+        description="Choose your delivery option."
         icon={<Truck className="h-4 w-4" />}
       >
-        <DeliveryRulesList rules={preview.rules} className="mb-4" />
+        <DeliveryRulesList
+          rules={preview.rules}
+          selectedRuleId={preview.selectedRuleId}
+          onSelectRule={preview.setSelectedRuleId}
+          className="mb-4"
+        />
         <DeliveryQuotePanel preview={preview} />
       </CheckoutSection>
 
@@ -801,22 +775,13 @@ function DeliveryFeeLabel({ preview }: DeliveryDisplayProps) {
   }
 
   if (!preview.totals) {
-    return <span className="text-muted-foreground">Select district and area</span>;
+    return <span className="text-muted-foreground">Select a delivery option</span>;
   }
 
   const { delivery } = preview.totals;
 
   if (delivery.freeDeliveryApplied) {
-    return (
-      <span className="font-semibold text-success">
-        FREE
-        {delivery.freeDeliveryThreshold !== null && (
-          <span className="ml-1 text-xs font-normal text-muted-foreground">
-            (over {formatPrice(delivery.freeDeliveryThreshold)})
-          </span>
-        )}
-      </span>
-    );
+    return <span className="font-semibold text-success">FREE</span>;
   }
 
   return (
@@ -827,7 +792,7 @@ function DeliveryFeeLabel({ preview }: DeliveryDisplayProps) {
 }
 
 /**
- * The expanded delivery panel: which zone applies, what it costs, and whether
+ * The expanded delivery panel: which rule applies, what it costs, and whether
  * free delivery was earned. All values are the backend's.
  */
 function DeliveryQuotePanel({ preview }: DeliveryDisplayProps) {
@@ -848,7 +813,7 @@ function DeliveryQuotePanel({ preview }: DeliveryDisplayProps) {
         <p className="font-medium text-foreground">Delivery is not available for this location.</p>
         <p className="mt-1 leading-relaxed text-muted-foreground">
           {preview.message ??
-            "We can't deliver to this location yet. Please check your district and area, or contact us and we'll arrange delivery manually."}
+            "We can't deliver to this location yet. Please check your address or contact us."}
         </p>
       </div>
     );
@@ -866,10 +831,16 @@ function DeliveryQuotePanel({ preview }: DeliveryDisplayProps) {
   }
 
   if (!preview.totals) {
+    if (preview.selectedRuleId) {
+      return (
+        <p className="text-sm text-muted-foreground" role="status">
+          Calculating delivery…
+        </p>
+      );
+    }
     return (
       <p className="text-sm leading-relaxed text-muted-foreground">
-        Delivery charge depends on your area and will be shown once you enter your
-        district and area. We&rsquo;ll confirm the exact amount at checkout.
+        Select a delivery option to see the charge.
       </p>
     );
   }
@@ -879,8 +850,8 @@ function DeliveryQuotePanel({ preview }: DeliveryDisplayProps) {
   return (
     <div className="space-y-3 text-sm">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground">Delivery zone</span>
-        <span className="font-medium text-foreground">{delivery.zoneName}</span>
+        <span className="text-muted-foreground">Delivery option</span>
+        <span className="font-medium text-foreground">{delivery.ruleName}</span>
       </div>
       <div className="flex items-center justify-between gap-3">
         <span className="text-muted-foreground">Delivery fee</span>
@@ -892,12 +863,6 @@ function DeliveryQuotePanel({ preview }: DeliveryDisplayProps) {
           {delivery.estimatedMinDays}–{delivery.estimatedMaxDays} days
         </span>
       </div>
-      {!delivery.freeDeliveryApplied && delivery.freeDeliveryThreshold !== null && (
-        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-          Spend {formatPrice(delivery.freeDeliveryThreshold)} or more to get free delivery in this
-          zone.
-        </p>
-      )}
     </div>
   );
 }

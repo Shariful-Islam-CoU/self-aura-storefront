@@ -8,6 +8,7 @@ import {
   WhySelfAura,
   TrustHighlights,
   NewsletterCta,
+  ConnectWithUs,
 } from "@/features/home/components";
 import { catalogService } from "@/services/catalogService";
 
@@ -32,6 +33,7 @@ export default async function HomePage() {
       <BestSellers products={bestSellers} />
       <WhySelfAura />
       <TrustHighlights />
+      <ConnectWithUs />
       <NewsletterCta />
     </>
   );

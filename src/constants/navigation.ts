@@ -41,13 +41,11 @@ export const footerAboutLinks: NavLink[] = [
 ];
 
 /**
- * Social channels are placeholders - no real Self Aura profiles exist yet.
- * `href` values must be updated when actual URLs are known.
+ * Social channels are admin-managed (application settings keys
+ * `social.facebook`, `social.instagram`, `social.messenger`, read from
+ * `GET /api/public/store-socials`) and rendered by the `SocialConnect`
+ * components - never hardcoded here.
  */
-export const footerSocialLinks: NavLink[] = [
-  { label: "Facebook", href: "#" },
-  { label: "Instagram", href: "#" },
-];
 
 /** Legal links are placeholders until real policy pages are published. */
 export const footerLegalLinks: NavLink[] = [

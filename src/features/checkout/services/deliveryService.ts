@@ -9,8 +9,7 @@
  *
  * Endpoints used (all public, all on the same backend authority):
  *   POST /public/checkout/preview             - authoritative full calculation
- *   GET  /delivery-zones/customer/delivery-zones  - coverage list for the dropdowns
- *   GET  /delivery-zones/customer/delivery-rules  - active delivery charges (Step 19A)
+ *   GET  /delivery-rules/customer/delivery-rules  - active delivery rules (simplified)
  */
 import { api, ApiError } from "@/lib/api/client";
 import type { ApiResponse } from "@/types";
@@ -28,40 +27,22 @@ export interface CheckoutPreviewRequest {
   items: Array<{ product: string; quantity: number }>;
   couponCode?: string;
   location: DeliveryLocationInput;
+  selectedRuleId?: string;
 }
 
 /**
- * Customer-safe coverage list for building the district/area selectors.
- * Contains no zone codes, priorities, descriptions or audit fields.
- */
-export interface PublicDeliveryCoverage {
-  zoneName: string;
-  baseDeliveryFee: number;
-  freeDeliveryThreshold: number | null;
-  districts: string[];
-  areas: string[];
-}
-
-/**
- * One ACTIVE delivery rule as published for customers (Step 19A).
+ * One ACTIVE delivery rule as published for customers (simplified).
  *
- * Mirrors the backend `getPublicRules` output exactly: the customer-facing
- * name (English + optional Bangla), the covered district/area/country, an
- * optional description (English + Bangla), the charge that applies, and the
- * display order. It deliberately contains NO zone codes/ids, priorities,
- * creators or timestamps - those are internal. `charge: 0` is a real value
- * meaning "free delivery for this rule".
+ * Mirrors the backend `getPublicRules` output exactly: the rule id, name, price,
+ * and ETA. No district/area/country matching - customer self-selects.
+ * `price: 0` means "free delivery for this rule".
  */
 export interface PublicDeliveryRule {
+  id: string;
   name: string;
-  nameBn?: string;
-  district?: string;
-  area?: string;
-  country: string;
-  description?: string;
-  descriptionBn?: string;
-  charge: number;
-  displayOrder: number;
+  price: number;
+  estimatedMinDays: number;
+  estimatedMaxDays: number;
 }
 
 function dataOrThrow<T>(payload: ApiResponse<T> | null | undefined, label: string): T {
@@ -90,30 +71,16 @@ export async function previewCheckout(
 }
 
 /**
- * Loads the active delivery coverage so the checkout form can offer real
- * districts and areas instead of free text.
- *
- * Failure is non-fatal by design: the customer can still type an address, and
- * the preview request remains the authority on whether it is deliverable.
- */
-export async function fetchDeliveryCoverage(): Promise<PublicDeliveryCoverage[]> {
-  const response = await api.get<ApiResponse<{ zones: PublicDeliveryCoverage[] }>>(
-    "/delivery-zones/customer/delivery-zones"
-  );
-  return dataOrThrow(response, "delivery coverage").zones ?? [];
-}
-
-/**
- * Loads the active delivery RULES for the "Delivery charges" view.
+ * Loads the active delivery RULES for the checkout page.
  *
  * What the customer sees and the fee the preview quotes always come from the
- * same backend rules; this list is informational (which areas cost what),
+ * same backend rules; this list is informational (which rules cost what),
  * while the preview remains the authority on the actual charge. Failure is
  * non-fatal: checkout still works without the reference list.
  */
 export async function fetchDeliveryRules(): Promise<PublicDeliveryRule[]> {
   const response = await api.get<ApiResponse<{ rules: PublicDeliveryRule[] }>>(
-    "/delivery-zones/customer/delivery-rules"
+    "/delivery-rules/customer/delivery-rules"
   );
   return dataOrThrow(response, "delivery rules").rules ?? [];
 }

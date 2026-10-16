@@ -6,7 +6,7 @@ import { Container } from "@/components/layout/Container";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { footerSocialLinks } from "@/constants/navigation";
+import { SocialConnectLive } from "./SocialConnect";
 
 /**
  * Newsletter / social CTA.
@@ -57,19 +57,8 @@ export function NewsletterCta() {
               {status === "submitted" ? "Thanks for the interest — newsletter signup will open soon." : ""}
             </p>
 
-            <div className="mt-8 flex items-center justify-center gap-3">
-              <span className="text-xs text-muted-foreground">Follow us</span>
-              <span aria-hidden="true" className="h-px w-8 bg-border" />
-              {footerSocialLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  aria-label={`${link.label} — channel coming soon`}
-                  className="inline-flex h-9 items-center rounded-md border border-border px-4 text-sm text-muted-foreground transition-colors hover:border-accent/50 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-                >
-                  {link.label}
-                </a>
-              ))}
+            <div className="mt-8">
+              <SocialConnectLive label="Follow us" />
             </div>
           </div>
         </Reveal>
