@@ -22,7 +22,8 @@ import type { Category, Product, ProductImage, ProductResponse, ProductVideo } f
  * still assumes the old root-relative `/media/<key>` path.
  */
 
-const API_ORIGIN = "http://localhost:5000";
+// const API_ORIGIN = "http://localhost:5000";
+const API_ORIGIN = "https://self-aura-backend.onrender.com";
 const CLOUD = "https://res.cloudinary.com/dzcqtjtiw";
 const cdnImage = (path: string) =>
   `${CLOUD}/image/upload/f_auto,q_auto/c_limit,w_2000/v1/self-aura/${path}`;

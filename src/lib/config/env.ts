@@ -5,9 +5,10 @@
  * backend/MongoDB/JWT secrets inside this project.
  */
 
-// const DEFAULT_API_URL = "https://self-aura-backend.onrender.com/api";
-const DEFAULT_API_URL = "http://localhost:5000/api";
-const DEFAULT_SITE_URL = "http://localhost:3001";
+const DEFAULT_API_URL = "https://self-aura-backend.onrender.com/api";
+// const DEFAULT_API_URL = "http://localhost:5000/api";
+const DEFAULT_SITE_URL = "https://self-aura.onrender.com";
+// const DEFAULT_SITE_URL = "http://localhost:3001";
 
 function readPublicEnvVar(name: string, fallback: string): string {
   const value = process.env[name];
