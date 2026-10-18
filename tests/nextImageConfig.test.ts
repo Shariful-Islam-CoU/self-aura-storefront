@@ -153,7 +153,8 @@ describe("next/image remote patterns — no client-side credentials", () => {
 describe("next/image remote patterns — legacy local media", () => {
   it("still allows the API origin, which serves pre-migration /media records", async () => {
     const patterns = patternsOf(
-      await loadConfig({ NEXT_PUBLIC_API_URL: "https://self-aura-backend.onrender.com" })
+      // await loadConfig({ NEXT_PUBLIC_API_URL: "https://self-aura-backend.onrender.com" })
+      await loadConfig({ NEXT_PUBLIC_API_URL: "https://self-aura.shop/api" })
       // await loadConfig({ NEXT_PUBLIC_API_URL: "http://localhost:5000/api" })
     );
     expect(patterns).toContainEqual({
