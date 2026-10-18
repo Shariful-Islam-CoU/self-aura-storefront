@@ -25,7 +25,14 @@ export default function AccountPage() {
     ])
       .then(([meRes, addrRes]) => {
         setCustomer(meRes.customer);
-        setAddresses(addrRes.addresses ?? []);
+        // Prefer the address book, but fall back to the default address on the
+        // profile so the saved district still shows if that call returns nothing.
+        const list = addrRes.addresses?.length
+          ? addrRes.addresses
+          : meRes.customer.defaultAddress
+            ? [meRes.customer.defaultAddress]
+            : [];
+        setAddresses(list);
         setLoading(false);
       })
       .catch((err) => {
@@ -128,6 +135,12 @@ export default function AccountPage() {
                     <p className="mt-1">{defaultAddress.addressLine}</p>
                   </div>
                 )}
+                {defaultAddress.district && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">District</p>
+                    <p className="mt-1">{defaultAddress.district}</p>
+                  </div>
+                )}
                 {defaultAddress.area && (
                   <div>
                     <p className="text-sm text-muted-foreground">Area/Thana</p>
@@ -172,6 +185,7 @@ export default function AccountPage() {
                         {addr.recipientName && <p className="text-sm">{addr.recipientName}</p>}
                         {addr.phone && <p className="text-sm">{addr.phone}</p>}
                         {addr.addressLine && <p className="text-sm">{addr.addressLine}</p>}
+                        {addr.district && <p className="text-sm">{addr.district}</p>}
                         {addr.area && <p className="text-sm">{addr.area}</p>}
                         {addr.city && <p className="text-sm">{addr.city}</p>}
                         {addr.postalCode && <p className="text-sm">{addr.postalCode}</p>}

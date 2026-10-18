@@ -56,14 +56,14 @@ export function validateCheckoutForm(values: CheckoutFormValues): CheckoutValida
   }
 
   const district = values.address.district.trim();
-  if (district.length > MAX_DISTRICT) {
+  if (!district) {
+    errors.district = "District is required.";
+  } else if (district.length > MAX_DISTRICT) {
     errors.district = `District must be at most ${MAX_DISTRICT} characters.`;
   }
 
   const city = values.address.city.trim();
-  if (!city) {
-    errors.city = "City is required.";
-  } else if (city.length > MAX_CITY) {
+  if (city.length > MAX_CITY) {
     errors.city = `City must be at most ${MAX_CITY} characters.`;
   }
 

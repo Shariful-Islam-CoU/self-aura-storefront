@@ -14,6 +14,11 @@ export interface QuantitySelectorProps {
   id?: string;
   /** Visual scale. `sm` is the compact stepper used inside product cards. */
   size?: "sm" | "md";
+  /**
+   * Stretch to the container width with evenly divided, larger tap targets -
+   * used by the stacked grid-card controls.
+   */
+  fullWidth?: boolean;
 }
 
 /** Hard ceiling to keep values reasonable even without stock data. */
@@ -37,26 +42,28 @@ export function QuantitySelector({
   disabled = false,
   id,
   size = "md",
+  fullWidth = false,
 }: QuantitySelectorProps) {
   const canDecrease = !disabled && value > min;
   const canIncrease = !disabled && value < (max ?? HARD_MAX);
 
   const stepButtonClass = cn(
     "flex items-center justify-center text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-    size === "sm" ? "h-9 w-8" : "h-12 w-12"
+    fullWidth ? "h-10 flex-1" : size === "sm" ? "h-9 w-8" : "h-12 w-12"
   );
   const valueClass = cn(
     "flex items-center justify-center text-sm font-medium tabular-nums text-foreground",
-    size === "sm" ? "w-8" : "w-12"
+    fullWidth ? "flex-1" : size === "sm" ? "w-8" : "w-12"
   );
-  const iconClass = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
+  const iconClass = size === "sm" && !fullWidth ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
     <div
       role="group"
       aria-label="Quantity"
       className={cn(
-        "inline-flex items-stretch overflow-hidden rounded-md border border-input bg-card",
+        "items-stretch overflow-hidden rounded-md border border-input bg-card",
+        fullWidth ? "flex w-full" : "inline-flex",
         disabled && "opacity-60"
       )}
     >

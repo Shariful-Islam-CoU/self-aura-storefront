@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogIn, Menu, User, X } from "lucide-react";
+import { LogIn, Menu, Package, User, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mainNavLinks } from "@/constants/navigation";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +36,10 @@ export function MobileNavigation() {
   const { isLoggedIn, openLoginModal } = useAuth();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const ordersActive =
+    pathname === "/account/orders" || pathname.startsWith("/account/orders/");
+  const accountActive = pathname === "/account";
 
   // Escape-to-close, focus management, and scroll lock.
   useEffect(() => {
@@ -136,14 +140,36 @@ export function MobileNavigation() {
             {/* Account - the only account entry point on screens below `sm`. */}
             <div className="shrink-0 border-t border-border p-4">
               {isLoggedIn ? (
-                <Link
-                  href="/account"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-md px-4 py-3 text-base font-label text-foreground transition-colors hover:bg-muted"
-                >
-                  <User className="h-5 w-5" aria-hidden="true" />
-                  My account
-                </Link>
+                <div className="flex flex-col gap-1">
+                  <Link
+                    href="/account/orders"
+                    onClick={() => setOpen(false)}
+                    aria-current={ordersActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-4 py-3 text-base font-label transition-colors",
+                      ordersActive
+                        ? "bg-muted text-foreground"
+                        : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <Package className="h-5 w-5" aria-hidden="true" />
+                    My orders
+                  </Link>
+                  <Link
+                    href="/account"
+                    onClick={() => setOpen(false)}
+                    aria-current={accountActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-4 py-3 text-base font-label transition-colors",
+                      accountActive
+                        ? "bg-muted text-foreground"
+                        : "text-foreground hover:bg-muted"
+                    )}
+                  >
+                    <User className="h-5 w-5" aria-hidden="true" />
+                    My account
+                  </Link>
+                </div>
               ) : (
                 <button
                   type="button"

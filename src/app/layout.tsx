@@ -31,6 +31,13 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   applicationName: siteConfig.name,
+  icons: {
+    // The source asset is actually a PNG (1920x1920) despite its `.svg` name,
+    // so the favicon uses a resized, correctly-typed PNG copy.
+    icon: [{ url: "/images/self_aura_dark_theme.png", type: "image/png", sizes: "256x256" }],
+    shortcut: "/images/self_aura_dark_theme.png",
+    apple: [{ url: "/images/self_aura_dark_theme.png", sizes: "256x256" }],
+  },
   keywords: ["jewelry", "self aura", "lifestyle", "gifts"],
   openGraph: {
     type: "website",

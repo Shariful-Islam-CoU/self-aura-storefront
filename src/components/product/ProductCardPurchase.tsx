@@ -7,7 +7,12 @@ import { useAddToCart } from "@/features/cart/hooks/useAddToCart";
 import type { Product } from "@/types";
 
 /**
- * In-card purchase controls: a compact quantity stepper plus Add to bag.
+ * In-card purchase controls: a full-width quantity stepper with Add to bag
+ * stacked underneath.
+ *
+ * Stacking (rather than sharing a row) gives each control the full card width,
+ * so the stepper and button keep comfortable tap targets in the two-column
+ * phone grid.
  *
  * The stepper's maximum is the product's live stock, so the quantity can never
  * exceed what is available; `useAddToCart` re-validates the same bound before
@@ -18,23 +23,21 @@ export function ProductCardPurchase({ product }: { product: Product }) {
   const { status, addToCart } = useAddToCart(product, quantity);
 
   return (
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <QuantitySelector
-          size="sm"
-          value={quantity}
-          onChange={setQuantity}
-          min={1}
-          max={product.stock > 0 ? product.stock : undefined}
-          disabled={status === "adding"}
-        />
-        <AddToCartButton
-          size="sm"
-          className="min-w-0 flex-1 whitespace-nowrap px-3"
-          status={status}
-          onClick={() => void addToCart()}
-        />
-      </div>
+    <div className="space-y-2">
+      <QuantitySelector
+        fullWidth
+        value={quantity}
+        onChange={setQuantity}
+        min={1}
+        max={product.stock > 0 ? product.stock : undefined}
+        disabled={status === "adding"}
+      />
+      <AddToCartButton
+        size="md"
+        className="w-full"
+        status={status}
+        onClick={() => void addToCart()}
+      />
       {status === "error" && (
         <p role="alert" className="text-xs text-destructive">
           Couldn&apos;t add. Please try again.

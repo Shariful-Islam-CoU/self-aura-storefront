@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, LogIn, UserPlus } from "lucide-react";
+import { X, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./Dialog";
 import { Button } from "./Button";
 import { Separator } from "./Separator";
@@ -15,9 +15,17 @@ interface LoginModalProps {
   onClose: () => void;
   required?: boolean; // if true, cannot skip/close without login
   redirectUrl?: string;
+  /** Called after a successful login/register/Google sign-in. */
+  onSuccess?: () => void;
 }
 
-export function LoginModal({ isOpen, onClose, required = false, redirectUrl: propRedirectUrl }: LoginModalProps) {
+export function LoginModal({
+  isOpen,
+  onClose,
+  required = false,
+  redirectUrl: propRedirectUrl,
+  onSuccess,
+}: LoginModalProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -28,10 +36,13 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
     email: "",
     phone: "",
     password: "",
+    confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Priority: prop > searchParams > default /checkout
-  const redirectUrl = propRedirectUrl || searchParams.get("redirect") || "/checkout";
+  // Priority: prop > searchParams > default / (home)
+  const redirectUrl = propRedirectUrl || searchParams.get("redirect") || "/";
 
   const handleSwitchMode = () => {
     setMode(mode === "login" ? "register" : "login");
@@ -45,6 +56,11 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
     try {
       let result: AuthResult;
       if (mode === "register") {
+        if (form.password !== form.confirmPassword) {
+          setError("Passwords do not match");
+          setLoading(false);
+          return;
+        }
         result = await customerAuthService.register({
           name: form.name,
           email: form.email,
@@ -55,6 +71,10 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
         result = await customerAuthService.login(form.email, form.password);
       }
       localStorage.setItem("customer_token", result.token);
+      setLoading(false);
+      // Let the parent react first (e.g. close the modal in-place on /checkout),
+      // then navigate for the pages that rely on a redirect.
+      onSuccess?.();
       router.push(redirectUrl);
       router.refresh();
     } catch (err: any) {
@@ -69,6 +89,8 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
     try {
       const result = await customerAuthService.googleAuth(credential);
       localStorage.setItem("customer_token", result.token);
+      setLoading(false);
+      onSuccess?.();
       router.push(redirectUrl);
       router.refresh();
     } catch (err: any) {
@@ -137,13 +159,50 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
           )}
           <Input
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
             autoComplete={mode === "register" ? "new-password" : "current-password"}
             minLength={mode === "register" ? 8 : undefined}
+            endAdornment={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            }
           />
+          {mode === "register" && (
+            <Input
+              label="Confirm password"
+              type={showConfirmPassword ? "text" : "password"}
+              value={form.confirmPassword}
+              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              required
+              autoComplete="new-password"
+              minLength={8}
+              endAdornment={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              }
+            />
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="w-full" size="lg" isLoading={loading} disabled={loading}>
@@ -181,13 +240,9 @@ export function LoginModal({ isOpen, onClose, required = false, redirectUrl: pro
         </p>
 
         {!required && (
-          <Button
-            variant="ghost"
-            className="mt-4 w-full"
-            onClick={onClose}
-          >
-            Continue as guest
-          </Button>
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Please login to track your orders
+          </p>
         )}
       </DialogContent>
     </Dialog>

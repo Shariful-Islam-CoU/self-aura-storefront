@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { Info } from "lucide-react";
+import { Eye, EyeOff, Info } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Separator } from "@/components/ui/Separator";
@@ -19,6 +19,8 @@ interface AuthFormProps {
  */
 export function AuthForm({ mode }: AuthFormProps) {
   const [notice, setNotice] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isRegister = mode === "register";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -30,15 +32,21 @@ export function AuthForm({ mode }: AuthFormProps) {
         const email = formData.get("email") as string;
         const phone = formData.get("phone") as string;
         const password = formData.get("password") as string;
+        const confirmPassword = formData.get("confirmPassword") as string;
+        if (password !== confirmPassword) {
+          setNotice("Passwords do not match");
+          return;
+        }
         const result = await customerAuthService.register({ name, email, phone, password });
         localStorage.setItem("customer_token", result.token);
-        window.location.href = "/checkout";
+        const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
+        window.location.href = redirect;
       } else {
         const identifier = formData.get("email") as string;
         const password = formData.get("password") as string;
         const result = await customerAuthService.login(identifier, password);
         localStorage.setItem("customer_token", result.token);
-        const redirect = new URLSearchParams(window.location.search).get("redirect") || "/checkout";
+        const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
         window.location.href = redirect;
       }
     } catch (err: any) {
@@ -87,12 +95,46 @@ export function AuthForm({ mode }: AuthFormProps) {
           id="password"
           name="password"
           label="Password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           autoComplete={isRegister ? "new-password" : "current-password"}
           placeholder={isRegister ? "At least 8 characters" : "Your password"}
           required
           minLength={isRegister ? 8 : undefined}
+          endAdornment={
+            <button
+              type="button"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
         />
+        {isRegister && (
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            label="Confirm password"
+            type={showConfirmPassword ? "text" : "password"}
+            autoComplete="new-password"
+            placeholder="Re-enter your password"
+            required
+            minLength={8}
+            endAdornment={
+              <button
+                type="button"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => setShowConfirmPassword((v) => !v)}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            }
+          />
+        )}
         <Button type="submit" size="lg" className="w-full">
           {isRegister ? "Create account" : "Sign in"}
         </Button>
@@ -109,7 +151,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           try {
             const result = await customerAuthService.googleAuth(credential);
             localStorage.setItem("customer_token", result.token);
-            const redirect = new URLSearchParams(window.location.search).get("redirect") || "/checkout";
+            const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
             window.location.href = redirect;
           } catch (err: any) {
             setNotice(err.message || "Google authentication failed");

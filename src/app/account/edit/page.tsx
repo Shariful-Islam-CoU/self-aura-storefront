@@ -32,11 +32,13 @@ export default function EditAccountPage() {
     phone: "",
     addressLine: "",
     area: "",
+    district: "",
     city: "",
     postalCode: "",
     country: "Bangladesh",
     isDefault: true,
   });
+  const [addressId, setAddressId] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("customer_token");
@@ -59,14 +61,23 @@ export default function EditAccountPage() {
         });
         setAvatarUrl(cust.avatarUrl || null);
         setIsGoogleAvatar(!!cust.avatarUrl && cust.avatarUrl.includes("googleusercontent.com"));
-        if (addrRes.addresses?.[0]) {
-          const a = addrRes.addresses[0];
+        // Prefer the default address from the address book, then any saved
+        // address, then the profile's default address - so the form edits the
+        // same address the account page shows, and a saved district prefills.
+        const list = addrRes.addresses ?? [];
+        const a =
+          list.find((entry: { isDefault?: boolean }) => entry.isDefault) ??
+          list[0] ??
+          cust.defaultAddress;
+        setAddressId(a?._id ?? a?.id ?? null);
+        if (a) {
           setAddress({
             label: a.label || "Home",
             recipientName: a.recipientName || cust.name || "",
             phone: a.phone || cust.phone || "",
             addressLine: a.addressLine || "",
             area: a.area || "",
+            district: a.district || "",
             city: a.city || "",
             postalCode: a.postalCode || "",
             country: a.country || "Bangladesh",
@@ -166,6 +177,11 @@ export default function EditAccountPage() {
     if (!token) return;
     setSaving(true);
     setError(null);
+
+    const problems: string[] = [];
+
+    // Profile and address are saved independently so a problem with one never
+    // silently blocks the other, and no failure is swallowed.
     try {
       await customerAuthService.updateProfile(token, {
         name: form.name,
@@ -174,18 +190,47 @@ export default function EditAccountPage() {
         facebookName: form.facebookName || undefined,
         facebookProfileUrl: form.facebookProfileUrl || undefined,
       });
-      // Check if we have an existing address to update
-      const existingAddresses = await customerAuthService.getAddresses(token).catch(() => ({ addresses: [] }));
-      if (existingAddresses.addresses?.length > 0) {
-        await customerAuthService.updateAddress(token, existingAddresses.addresses[0]._id, address).catch(() => {});
-      } else {
-        await customerAuthService.addAddress(token, address).catch(() => {});
-      }
-      router.push("/account");
-    } catch (err: any) {
-      setError(err.message);
-      setSaving(false);
+    } catch (err) {
+      problems.push(err instanceof Error ? err.message : "Failed to update your profile.");
     }
+
+    // Only touch the saved address when the customer actually entered one, so
+    // editing just the profile never forces the address fields to be filled.
+    const hasAddressInput = [
+      address.recipientName,
+      address.phone,
+      address.addressLine,
+      address.area,
+      address.district,
+      address.city,
+      address.postalCode,
+    ].some((value) => value.trim().length > 0);
+
+    if (hasAddressInput) {
+      if (!address.addressLine.trim()) {
+        problems.push("Please enter the address line for your default address.");
+      } else if (!address.district.trim()) {
+        problems.push("Please enter the district for your default address.");
+      } else {
+        try {
+          if (addressId) {
+            await customerAuthService.updateAddress(token, addressId, address);
+          } else {
+            await customerAuthService.addAddress(token, address);
+          }
+        } catch (err) {
+          problems.push(err instanceof Error ? err.message : "Failed to save your address.");
+        }
+      }
+    }
+
+    if (problems.length > 0) {
+      setError(problems.join(" "));
+      setSaving(false);
+      return;
+    }
+
+    router.push("/account");
   };
 
   if (loading) return <LoadingState label="Loading your profile..." />;
@@ -312,28 +357,34 @@ export default function EditAccountPage() {
           />
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
+              label="District"
+              helperText="Required when saving an address"
+              value={address.district}
+              onChange={(e) => setAddress({ ...address, district: e.target.value })}
+            />
+            <Input
               label="Area/Thana"
               value={address.area}
               onChange={(e) => setAddress({ ...address, area: e.target.value })}
             />
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2">
             <Input
-              label="City"
+              label="City (optional)"
               value={address.city}
               onChange={(e) => setAddress({ ...address, city: e.target.value })}
             />
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2">
             <Input
               label="Postal code"
               value={address.postalCode}
               onChange={(e) => setAddress({ ...address, postalCode: e.target.value })}
             />
-            <Input
-              label="Country"
-              value={address.country}
-              onChange={(e) => setAddress({ ...address, country: e.target.value })}
-            />
           </div>
+          <Input
+            label="Country"
+            value={address.country}
+            onChange={(e) => setAddress({ ...address, country: e.target.value })}
+          />
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}

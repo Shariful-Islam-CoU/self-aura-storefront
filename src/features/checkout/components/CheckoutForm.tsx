@@ -133,13 +133,29 @@ export function CheckoutForm() {
       customerAuthService
         .getMe(token)
         .then((res) => {
+          const customer = res.customer as typeof res.customer & {
+            defaultAddress?: Partial<CheckoutAddressForm>;
+          };
+          const saved = customer.defaultAddress;
           setValues((v) => ({
             ...v,
             customer: {
-              fullName: res.customer.name || "",
-              phone: res.customer.phone || "",
-              facebookName: (res.customer as any).facebookName || "",
-              facebookProfileUrl: (res.customer as any).facebookProfileUrl || "",
+              fullName: customer.name || "",
+              phone: customer.phone || "",
+              facebookName: customer.facebookName || "",
+              facebookProfileUrl: customer.facebookProfileUrl || "",
+            },
+            // Prefill the delivery address from the customer's saved address, if
+            // any. Each field is only filled while still empty, so this can
+            // never clobber something the customer has already typed.
+            address: {
+              ...v.address,
+              addressLine: v.address.addressLine || saved?.addressLine || "",
+              area: v.address.area || saved?.area || "",
+              district: v.address.district || saved?.district || "",
+              city: v.address.city || saved?.city || "",
+              postalCode: v.address.postalCode || saved?.postalCode || "",
+              country: saved?.country || v.address.country,
             },
           }));
         })
@@ -483,8 +499,7 @@ export function CheckoutForm() {
             label="City"
             name="city"
             autoComplete="address-level2"
-            placeholder="City"
-            required
+            placeholder="City (optional)"
             value={values.address.city}
             error={errors.city}
             onChange={(event) => updateAddress("city", event.target.value)}

@@ -53,6 +53,7 @@ function StorefrontShellInner({ children }: { children: React.ReactNode }) {
         onClose={closeLoginModal}
         required={false}
         redirectUrl={loginRedirectUrl ?? undefined}
+        onSuccess={() => setLoggedIn(true)}
       />
     </div>
   );

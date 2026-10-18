@@ -74,22 +74,17 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
   // fallback. An empty `alt` would be announced as an unlabelled image, which
   // is worse than a slightly generic one.
   const imageAlt = primaryImage?.alt?.trim() || product.name;
-  // The interactive grid is a single column on phones, so the image spans the
-  // viewport there; the browse-only card stays two-up.
-  const imageSizes = interactive
-    ? "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 100vw"
-    : "(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw";
 
   return (
-    <li className="group">
-      <article className="transition-transform duration-300 ease-out group-hover:-translate-y-0.5">
+    <li className="group flex flex-col">
+      <article className="flex flex-1 flex-col transition-transform duration-300 ease-out group-hover:-translate-y-0.5">
         {/* Media. The frame reserves the 4/5 box, so the whole tile is one tap
             target with no layout shift; the link, badges and wishlist ride on
             top of it as siblings of the image rather than wrapping it. */}
         <ProductImageFrame
           src={primaryImage?.url}
           alt={imageAlt}
-          sizes={imageSizes}
+          sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           priority={priority}
           className="aspect-[4/5]"
           imageClassName="transition-transform duration-700 ease-out group-hover:scale-[1.04]"
@@ -153,7 +148,7 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
 
         {/* Details */}
         {interactive && !demo ? (
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-4 flex flex-1 flex-col gap-2.5">
             <div className="flex items-start justify-between gap-2">
               <h3 className="min-w-0 text-sm font-medium leading-snug text-foreground">
                 <Link
@@ -175,14 +170,16 @@ export function ProductCard({ product, demo = false, priority = false, footerAct
               </p>
             </div>
 
-            {soldOut ? (
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="min-w-0 truncate text-muted-foreground">{product.category.name}</span>
-                <span className="shrink-0 font-medium text-destructive">Out of stock</span>
-              </div>
-            ) : (
-              <ProductCardPurchase product={product} />
-            )}
+            <div className="mt-auto pt-1">
+              {soldOut ? (
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="min-w-0 truncate text-muted-foreground">{product.category.name}</span>
+                  <span className="shrink-0 font-medium text-destructive">Out of stock</span>
+                </div>
+              ) : (
+                <ProductCardPurchase product={product} />
+              )}
+            </div>
           </div>
         ) : (
           <div className="mt-4 space-y-1.5">
