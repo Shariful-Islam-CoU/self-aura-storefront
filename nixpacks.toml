@@ -1,0 +1,11 @@
+# Nixpacks builds with NODE_ENV=production, which makes the default
+# `npm ci` skip devDependencies. This project needs devDependencies at build
+# time:
+#   - @tailwindcss/postcss (devDependency) is required by postcss.config.mjs to
+#     compile src/app/globals.css, and
+#   - typescript + @types/* are needed for the Next.js type-check step.
+# Without them `npm run build` fails with "Cannot find module
+# '@tailwindcss/postcss'". Install devDependencies explicitly for the build;
+# Nixpacks still prunes them from the final image.
+[phases.install]
+cmds = ["npm ci --include=dev"]

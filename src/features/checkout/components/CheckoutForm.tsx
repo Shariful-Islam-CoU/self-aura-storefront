@@ -130,13 +130,25 @@ export function CheckoutForm() {
     const token = localStorage.getItem("customer_token");
     if (!token) return;
     import("@/services/customerAuthService").then(({ customerAuthService }) => {
-      customerAuthService
-        .getMe(token)
-        .then((res) => {
-          const customer = res.customer as typeof res.customer & {
-            defaultAddress?: Partial<CheckoutAddressForm>;
+      // Read the profile and the address book together, then fall back between
+      // them - the same precedence the account and edit pages use. A saved
+      // address can live in either place, so consulting only one of them is
+      // what previously left the District (and the rest of the address) empty.
+      Promise.all([
+        customerAuthService.getMe(token),
+        customerAuthService.getAddresses(token).catch(() => ({ addresses: [] })),
+      ])
+        .then(([meRes, addrRes]) => {
+          type SavedAddress = Partial<CheckoutAddressForm> & { isDefault?: boolean };
+          const customer = meRes.customer as typeof meRes.customer & {
+            defaultAddress?: SavedAddress;
           };
-          const saved = customer.defaultAddress;
+          const list: SavedAddress[] = Array.isArray(addrRes?.addresses)
+            ? addrRes.addresses
+            : [];
+          const saved: SavedAddress | undefined =
+            list.find((entry) => entry.isDefault) ?? list[0] ?? customer.defaultAddress;
+
           setValues((v) => ({
             ...v,
             customer: {
