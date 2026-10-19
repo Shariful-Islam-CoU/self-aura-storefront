@@ -36,7 +36,7 @@ import type {
 // The API origin comes from NEXT_PUBLIC_API_URL, defaulted in
 // src/lib/config/env.ts to http://localhost:5000/api
 // const API_ORIGIN = "https://self-aura-backend.onrender.com";
-const API_ORIGIN = "https://self-aura.shop";
+const API_ORIGIN = "https://api.self-aura.shop";
 // const API_ORIGIN = "http://localhost:5000";
 const CLOUD = "https://res.cloudinary.com/dzcqtjtiw";
 const cdnImage = (path: string) =>

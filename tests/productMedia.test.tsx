@@ -24,7 +24,7 @@ import type { Category, Product, ProductImage, ProductResponse, ProductVideo } f
 
 // const API_ORIGIN = "http://localhost:5000";
 // const API_ORIGIN = "https://self-aura-backend.onrender.com";
-const API_ORIGIN = "https://self-aura.shop";
+const API_ORIGIN = "https://api.self-aura.shop";
 const CLOUD = "https://res.cloudinary.com/dzcqtjtiw";
 const cdnImage = (path: string) =>
   `${CLOUD}/image/upload/f_auto,q_auto/c_limit,w_2000/v1/self-aura/${path}`;

@@ -5,7 +5,7 @@
  * backend/MongoDB/JWT secrets inside this project.
  */
 
-const DEFAULT_API_URL = "https://self-aura.shop/api";
+const DEFAULT_API_URL = "https://api.self-aura.shop/api";
 // const DEFAULT_API_URL = "https://self-aura-backend.onrender.com/api";
 // const DEFAULT_API_URL = "http://localhost:5000/api";
 const DEFAULT_SITE_URL = "https://self-aura.shop";
