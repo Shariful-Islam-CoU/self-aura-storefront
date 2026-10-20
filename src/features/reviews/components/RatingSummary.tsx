@@ -11,7 +11,7 @@ interface RatingSummaryProps {
 
 /**
  * Aggregate rating block: average stars, the numeric score, the review count
- * and — only when the backend actually returns them — the per-star
+ * and - only when the backend actually returns them - the per-star
  * distribution.
  *
  * Nothing is invented here: with no reviews it says so, and the distribution
@@ -33,7 +33,7 @@ export function RatingSummary({ summary, className }: RatingSummaryProps) {
       {/* Score */}
       <div className="flex items-center gap-4 sm:flex-col sm:items-start sm:gap-2">
         <p className="font-display text-4xl font-medium leading-none text-foreground">
-          {averageRating === null ? "—" : averageRating}
+          {averageRating === null ? "-" : averageRating}
         </p>
         <div>
           <StarRating value={averageRating ?? 0} size="md" />

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useReducer } from "react";
 import { REVIEWS_PAGE_SIZE } from "../constants";
 import { mapReviewResponse, mapReviewSummary } from "../lib/reviewMappers";
 import {
+  createReply,
   createReview,
   deleteReview as deleteReviewRequest,
   fetchProductReviews,
@@ -32,6 +33,8 @@ export interface ReviewsState {
   submitError: ReviewError | null;
   /** Id of the review currently open in the inline editor. */
   editingId: string | null;
+  /** Id of the review currently being replied to. */
+  replyingToId: string | null;
   /** Bumped to force a re-read from the backend (after a write, or Retry). */
   attempt: number;
 }
@@ -50,6 +53,7 @@ export const REVIEWS_INITIAL_STATE: ReviewsState = {
   submitStatus: "idle",
   submitError: null,
   editingId: null,
+  replyingToId: null,
   attempt: 0,
 };
 
@@ -66,7 +70,9 @@ export type ReviewsAction =
   | { type: "submitFailed"; error: ReviewError }
   | { type: "startEdit"; reviewId: string }
   | { type: "cancelEdit" }
-  | { type: "refresh" };
+  | { type: "refresh" }
+  | { type: "replyStart"; reviewId: string }
+  | { type: "replyCancel" };
 
 /** Exported for testability, mirroring the cart/wishlist provider precedent. */
 export function reviewsReducer(state: ReviewsState, action: ReviewsAction): ReviewsState {
@@ -79,7 +85,9 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
       return {
         ...state,
         status: "ready",
-        summary: mapReviewSummary(summary),
+        // A load-more payload carries no summary (only page 1 does), so keep
+        // the summary already held rather than overwriting it with zeros.
+        summary: summary ? mapReviewSummary(summary) : state.summary,
         reviews: action.append ? [...state.reviews, ...reviews] : reviews,
         page: pagination.page,
         hasMore: pagination.page < pagination.totalPages,
@@ -109,15 +117,19 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
     case "submitting":
       return { ...state, submitStatus: "submitting", submitError: null };
     case "submitSucceeded":
-      return { ...state, submitStatus: "saved", submitError: null, editingId: null };
+      return { ...state, submitStatus: "saved", submitError: null, editingId: null, replyingToId: null };
     case "submitFailed":
       return { ...state, submitStatus: "idle", submitError: action.error };
     case "startEdit":
-      return { ...state, editingId: action.reviewId, submitStatus: "idle", submitError: null };
+      return { ...state, editingId: action.reviewId, submitStatus: "idle", submitError: null, replyingToId: null };
     case "cancelEdit":
       return { ...state, editingId: null, submitStatus: "idle", submitError: null };
     case "refresh":
       return { ...state, attempt: state.attempt + 1 };
+    case "replyStart":
+      return { ...state, replyingToId: action.reviewId, submitStatus: "idle", submitError: null, editingId: null };
+    case "replyCancel":
+      return { ...state, replyingToId: null, submitStatus: "idle", submitError: null };
   }
 }
 
@@ -143,6 +155,11 @@ export interface UseProductReviewsResult {
   removeReview: (review: Review) => Promise<void>;
   /** The signed-in customer's own review, when the backend marks one. */
   ownReview: Review | null;
+  /** Reply functions */
+  replyingToId: string | null;
+  startReply: (review: Review) => void;
+  cancelReply: () => void;
+  replyToReview: (review: Review, text: string) => Promise<void>;
 }
 
 /**
@@ -222,6 +239,7 @@ export function useProductReviews(
         dispatch({ type: "refresh" });
       } catch (error: unknown) {
         dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
+        throw error;
       }
     },
     [enabled, productId]
@@ -240,6 +258,7 @@ export function useProductReviews(
         dispatch({ type: "refresh" });
       } catch (error: unknown) {
         dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
+        throw error;
       }
     },
     [enabled, editingId]
@@ -255,6 +274,7 @@ export function useProductReviews(
         dispatch({ type: "refresh" });
       } catch (error: unknown) {
         dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
+        throw error;
       }
     },
     [enabled]
@@ -267,6 +287,30 @@ export function useProductReviews(
   const cancelEdit = useCallback(() => {
     dispatch({ type: "cancelEdit" });
   }, []);
+
+  const startReply = useCallback((review: Review) => {
+    dispatch({ type: "replyStart", reviewId: review.id });
+  }, []);
+
+  const cancelReply = useCallback(() => {
+    dispatch({ type: "replyCancel" });
+  }, []);
+
+  const replyToReview = useCallback(
+    async (review: Review, text: string) => {
+      if (!enabled) return;
+      dispatch({ type: "submitting" });
+      try {
+        await createReply(review.id, { text: text.trim() });
+        dispatch({ type: "submitSucceeded" });
+        dispatch({ type: "refresh" });
+      } catch (error: unknown) {
+        dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
+        throw error;
+      }
+    },
+    [enabled]
+  );
 
   const editingReview = state.reviews.find((review) => review.id === editingId) ?? null;
   const ownReview = state.reviews.find((review) => review.isOwnReview) ?? null;
@@ -292,5 +336,9 @@ export function useProductReviews(
     saveEdit,
     removeReview,
     ownReview,
+    replyingToId: state.replyingToId,
+    startReply,
+    cancelReply,
+    replyToReview,
   };
 }

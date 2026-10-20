@@ -18,6 +18,8 @@ import {
   type ProductReviewSummaryResponse,
   type RatingDistributionResponse,
   type Review,
+  type ReviewReply,
+  type ReviewReplyResponse,
   type ReviewResponse,
   type ReviewSummary,
 } from "@/types/review";
@@ -45,6 +47,20 @@ export function normalizeRating(value: unknown): number | null {
   return rounded;
 }
 
+/** Map one wire reply to the customer-safe display shape. */
+export function mapReplyResponse(response: ReviewReplyResponse): ReviewReply {
+  const displayName = readString(response.authorName).trim();
+
+  return {
+    id: readString(response.id),
+    authorName: displayName || (response.authorType === "admin" ? "Self Aura Team" : ANONYMOUS_AUTHOR),
+    authorType: response.authorType,
+    text: readString(response.text),
+    createdAt: readString(response.createdAt),
+    updatedAt: readString(response.updatedAt),
+  };
+}
+
 /** Map one wire review to the customer-safe display shape. */
 export function mapReviewResponse(response: ReviewResponse): Review {
   const displayName = readString(response.author?.displayName).trim();
@@ -62,6 +78,7 @@ export function mapReviewResponse(response: ReviewResponse): Review {
     isOwnReview: response.isOwnReview === true,
     createdAt: readString(response.createdAt),
     updatedAt: readString(response.updatedAt),
+    replies: (response.replies ?? []).map(mapReplyResponse),
   };
 }
 

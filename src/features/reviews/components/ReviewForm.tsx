@@ -66,6 +66,10 @@ export function ReviewForm({
       await onSubmit(values);
       // Success: clear the draft so a stale half-written review can't linger.
       if (!isEdit) setValues({ rating: 0, comment: "" });
+    } catch {
+      // The failure is reported to this component through the `error` prop
+      // (the parent hook records it); swallowing here just prevents an
+      // unhandled rejection from a fire-and-forget submit.
     } finally {
       setState("idle");
     }
@@ -133,7 +137,7 @@ export function ReviewForm({
 
         {overSoftLimit && (
           <p className="text-sm text-muted-foreground">
-            Reviews are usually shorter — trimming yours will help other customers read it.
+            Reviews are usually shorter - trimming yours will help other customers read it.
           </p>
         )}
       </div>
@@ -151,7 +155,7 @@ export function ReviewForm({
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <Button type="submit" size="lg" isLoading={submitting} disabled={submitting}>
-          {submitting ? "Saving…" : isEdit ? "Save changes" : "Submit review"}
+          {submitting ? "Saving..." : isEdit ? "Save changes" : "Submit review"}
         </Button>
         {isEdit && onCancel && (
           <Button type="button" variant="ghost" size="lg" onClick={onCancel} disabled={submitting}>

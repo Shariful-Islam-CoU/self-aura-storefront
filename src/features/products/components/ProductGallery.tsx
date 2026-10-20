@@ -225,7 +225,7 @@ export function ProductGallery({ images, videos, name }: ProductGalleryProps) {
       {/* Main view. Not focusable itself: the container owns the key handling
           and every control inside it is already a tab stop, so adding a
           focusable region here would only add a keyboard trap. */}
-      <div className="group/gallery relative aspect-[4/5] flex-1">
+      <div className="group/gallery relative aspect-[4/5] flex-1 lg:self-start">
         {active?.kind === "video" ? (
           <ProductVideoFrame
             key={active.video.url}

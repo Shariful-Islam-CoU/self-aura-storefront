@@ -1,38 +1,48 @@
 /**
- * Review service - the single seam between the storefront and a backend
- * product-review API.
+ * Review service - the single seam between the storefront and the
+ * `self_aura_backend` product-review API.
  *
- * ┌───────────────────────────────────────────────────────────────────────┐
- * │ BACKEND STATUS: these endpoints DO NOT EXIST TODAY.                   │
- * │                                                                       │
- * │ `self_aura_backend` was inspected: no `Review` model, no `/reviews`  │
- * │ route, no review service/repository/validator, and no rating fields   │
- * │ on `ProductResponse`. Every call in this file is therefore currently   │
- * │ unreachable — `ReviewsSection` gates on `REVIEWS_AVAILABLE` and issues │
- * │ no requests at all while it is `false`.                               │
- * │                                                                       │
- * │ The functions below document the contract the storefront is written   │
- * │ against, following this codebase's conventions exactly:               │
- * │   - `{ success, message, data }` envelope, unwrapped via `dataOrThrow`│
- * │   - paged lists return `{ items, pagination }`                        │
- * │   - `ApiError` for non-2xx, mapped to friendly copy by               │
- * │     `toReviewError` (raw backend messages never reach the UI)         │
- * │                                                                       │
- * │ When the backend adds the API, point these paths at the real routes   │
- * │ and flip `REVIEWS_AVAILABLE`. No component changes are required.      │
- * └───────────────────────────────────────────────────────────────────────┘
+ * Backend surface (routes/review.routes.ts):
+ *   PUBLIC (optional customer Bearer for `isOwnReview`):
+ *     GET    /catalogue/products/:productId/reviews          list approved (paged)
+ *     GET    /catalogue/products/:productId/reviews/summary  aggregate rating
+ *   CUSTOMER (authenticated customer, verified purchase):
+ *     POST   /customer/reviews                               create own
+ *     PATCH  /customer/reviews/:id                           edit own
+ *     DELETE /customer/reviews/:id                           delete own
+ *     POST   /customer/reviews/:id/replies                   reply to own review
+ *
+ * Paths are relative to the API base (`/api`). Conventions:
+ *   - `{ success, message, data }` envelope, unwrapped via `dataOrThrow`;
+ *   - paged lists return `{ items, pagination }`;
+ *   - `ApiError` for non-2xx, mapped to friendly copy by `toReviewError`
+ *     (raw backend messages never reach the UI).
+ *
+ * AUTH: the public reads accept the customer token when present so the backend
+ * can mark `isOwnReview`; the customer writes require it. The token is read from
+ * `localStorage` exactly like the rest of the storefront's services.
  */
 
-import { api, ApiError } from "@/lib/api/client";
-import { buildQueryString } from "@/lib/api/client";
+import { api, ApiError, buildQueryString } from "@/lib/api/client";
 import type { ApiResponse } from "@/types/api";
 import type {
+  CreateReplyRequest,
   CreateReviewRequest,
   ProductReviewsDataResponse,
+  ProductReviewSummaryResponse,
+  ReviewReplyResponse,
   ReviewResponse,
   ReviewSort,
+  UpdateReplyRequest,
   UpdateReviewRequest,
 } from "@/types/review";
+
+/** Read the signed-in customer's token, if any. */
+function authHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const token = window.localStorage.getItem("customer_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 /* -------------------------------------------------------------------------- */
 /* Error mapping                                                             */
@@ -204,6 +214,10 @@ function dataOrThrow<T>(payload: ApiResponse<T> | null | undefined, label: strin
  * The storefront never re-sorts a page client-side and never requests more
  * than `limit` rows: ordering, paging and total counts are the backend's
  * responsibility so a large review set is never pulled into the browser.
+ *
+ * On the first page the aggregate summary is fetched *in parallel* (the
+ * backend serves it from its own endpoint) and folded into the payload, so the
+ * UI has the rating summary as soon as the list resolves. Later pages omit it.
  */
 export async function fetchProductReviews({
   productId,
@@ -212,10 +226,40 @@ export async function fetchProductReviews({
   sort = "recent",
 }: FetchReviewsParams): Promise<ProductReviewsDataResponse> {
   const query = buildQueryString({ page, limit, sortBy: sort });
-  const response = await api.get<ApiResponse<ProductReviewsDataResponse>>(
-    `/products/${productId}/reviews${query}`
+
+  if (page > 1) {
+    const response = await api.get<ApiResponse<ProductReviewsDataResponse>>(
+      `/catalogue/products/${productId}/reviews${query}`,
+      { headers: authHeaders() }
+    );
+    return dataOrThrow(response, "reviews");
+  }
+
+  const [listResponse, summary] = await Promise.all([
+    api.get<ApiResponse<ProductReviewsDataResponse>>(
+      `/catalogue/products/${productId}/reviews${query}`,
+      { headers: authHeaders() }
+    ),
+    fetchProductReviewSummary(productId),
+  ]);
+
+  return { ...dataOrThrow(listResponse, "reviews"), summary };
+}
+
+/**
+ * Fetch the aggregate rating for a product.
+ *
+ * The backend exposes this as its own endpoint (the list payload carries no
+ * summary), so the storefront reads it separately.
+ */
+export async function fetchProductReviewSummary(
+  productId: string
+): Promise<ProductReviewSummaryResponse> {
+  const response = await api.get<ApiResponse<ProductReviewSummaryResponse>>(
+    `/catalogue/products/${productId}/reviews/summary`,
+    { headers: authHeaders() }
   );
-  return dataOrThrow(response, "reviews");
+  return dataOrThrow(response, "review summary");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -228,7 +272,11 @@ export async function fetchProductReviews({
  * the backend stays the source of truth (no optimistic creation).
  */
 export async function createReview(request: CreateReviewRequest): Promise<ReviewResponse> {
-  const response = await api.post<ApiResponse<ReviewResponse>>("/reviews", request);
+  const response = await api.post<ApiResponse<ReviewResponse>>(
+    "/customer/reviews",
+    request,
+    { headers: authHeaders() }
+  );
   return dataOrThrow(response, "review");
 }
 
@@ -238,13 +286,54 @@ export async function updateReview(
   request: UpdateReviewRequest
 ): Promise<ReviewResponse> {
   const response = await api.patch<ApiResponse<ReviewResponse>>(
-    `/reviews/${reviewId}`,
-    request
+    `/customer/reviews/${reviewId}`,
+    request,
+    { headers: authHeaders() }
   );
   return dataOrThrow(response, "review");
 }
 
 /** Delete a review. Only surfaced when the backend supports customer deletes. */
 export async function deleteReview(reviewId: string): Promise<void> {
-  await api.delete<ApiResponse<unknown>>(`/reviews/${reviewId}`);
+  await api.delete<ApiResponse<unknown>>(`/customer/reviews/${reviewId}`, {
+    headers: authHeaders(),
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Replies                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** Add a reply to a review. */
+export async function createReply(
+  reviewId: string,
+  request: CreateReplyRequest
+): Promise<ReviewReplyResponse> {
+  const response = await api.post<ApiResponse<ReviewReplyResponse>>(
+    `/customer/reviews/${reviewId}/replies`,
+    request,
+    { headers: authHeaders() }
+  );
+  return dataOrThrow(response, "reply");
+}
+
+/** Update a reply on a review. */
+export async function updateReply(
+  reviewId: string,
+  replyId: string,
+  request: UpdateReplyRequest
+): Promise<ReviewReplyResponse> {
+  const response = await api.patch<ApiResponse<ReviewReplyResponse>>(
+    `/customer/reviews/${reviewId}/replies/${replyId}`,
+    request,
+    { headers: authHeaders() }
+  );
+  return dataOrThrow(response, "reply");
+}
+
+/** Delete a reply from a review. */
+export async function deleteReply(reviewId: string, replyId: string): Promise<void> {
+  await api.delete<ApiResponse<unknown>>(`/customer/reviews/${reviewId}/replies/${replyId}`, {
+    headers: authHeaders(),
+  });
 }

@@ -4,20 +4,18 @@
  * TWO-LAYER APPROACH (same convention as `./product`):
  *
  * - `ReviewResponse`, `ProductReviewSummaryResponse`,
- *   `ProductReviewsDataResponse` — the wire contracts the storefront is
- *   written against.
+ *   `ProductReviewsDataResponse` — the wire contracts served by
+ *   `self_aura_backend`.
  * - `Review` — the customer-safe display shape the UI consumes.
  *
- * IMPORTANT — backend status (verified against `self_aura_backend`):
- * the backend has **no review/rating functionality at all**. There is no
- * `Review` model, no `/reviews` route, no review service/repository/validator,
- * and no `averageRating` / `reviewCount` field on `ProductResponse`. The only
- * public endpoint is `GET /api/public/payment-settings`; product reads are
- * auth-gated. These types therefore describe the contract the storefront
- * expects from a future backend review API. They are declared here so the
- * integration seam is typed end-to-end, NOT because any endpoint currently
- * serves them. See `src/features/reviews/constants.ts` (`REVIEWS_AVAILABLE`)
- * and README §5 "Known backend limitation: no review or rating API".
+ * BACKEND CONTRACT (verified against `self_aura_backend`):
+ *   - `GET  /api/catalogue/products/:productId/reviews`         public list
+ *   - `GET  /api/catalogue/products/:productId/reviews/summary` public summary
+ *   - `POST /api/customer/reviews`                              create own
+ *   - `PATCH/DELETE /api/customer/reviews/:id`                  edit/delete own
+ *   - `POST /api/customer/reviews/:id/replies`                  reply to own
+ * The public reads accept an optional customer Bearer token so the backend can
+ * set `isOwnReview`.
  *
  * PRIVACY: nothing here models customer email, phone, the internal customer
  * `_id`, admin notes or moderation state. A review is identified for "is this
@@ -34,36 +32,51 @@ export const MAX_REVIEW_RATING = 5;
 /**
  * Customer identity as it appears on a review - display name only.
  *
- * The backend is expected to supply a privacy-safe display name (e.g. a masked
- * name). The storefront never invents, derives or falls back to anything the
- * backend did not send.
+ * The backend supplies a privacy-safe display name (first name + initial).
+ * The storefront never invents, derives or falls back to anything the backend
+ * did not send.
  */
 export interface ReviewAuthorRef {
-  /** Privacy-safe display name, e.g. "Sadia R." or "S*** A***". */
+  /** Privacy-safe display name, e.g. "Ayesha K.". */
   displayName: string;
+}
+
+/** Wire shape: a single review reply. */
+export interface ReviewReplyResponse {
+  id: string;
+  authorType: "customer" | "admin";
+  /** Privacy-safe label supplied by the backend. */
+  authorName?: string;
+  text: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /** Wire shape: a single review. */
 export interface ReviewResponse {
   id: string;
-  /** Owning product's ObjectId — never rendered, only used for identity. */
-  product: string;
+  /** Owning product reference — identity plus a renderable name. */
+  product: { id: string; name?: string; slug?: string };
   /** Whole-star rating within the backend's supported range (1..5). */
   rating: number;
+  /** Optional short headline. */
+  title?: string;
   /** Customer-written review text. Plain text - never HTML. */
   comment: string;
   /** Privacy-safe author reference. */
-  author?: ReviewAuthorRef;
+  author: ReviewAuthorRef;
   /**
-   * Only true when the backend confirms the order was paid. The storefront
+   * True when the backend confirms the purchase was delivered. The storefront
    * never derives this from local order data.
    */
-  isVerifiedPurchase?: boolean;
+  isVerifiedPurchase: boolean;
   /**
    * True when the signed-in customer is the author. Supplied by the backend so
    * the storefront never needs the customer's internal id to decide ownership.
    */
-  isOwnReview?: boolean;
+  isOwnReview: boolean;
+  /** Replies to this review. */
+  replies: ReviewReplyResponse[];
   createdAt: string;
   updatedAt: string;
 }
@@ -71,17 +84,23 @@ export interface ReviewResponse {
 /** Per-star tallies for 1..5 (keys are the star values as strings). */
 export type RatingDistributionResponse = Partial<Record<1 | 2 | 3 | 4 | 5, number>>;
 
-/** Wire shape: aggregate rating for a product. */
+/** Wire shape: aggregate rating for a product (dedicated summary endpoint). */
 export interface ProductReviewSummaryResponse {
-  /** Mean rating, 1..5. Omitted entirely when there are no reviews. */
-  averageRating?: number;
+  /** Mean rating, 1..5, or null when the product has no reviews yet. */
+  averageRating: number | null;
   reviewCount: number;
-  /** Per-star counts. Omitted when the backend does not compute it. */
-  distribution?: RatingDistributionResponse;
+  /** Per-star counts for 1..5. */
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>;
 }
 
 /** Wire shape: the paged review list payload. */
 export interface ProductReviewsDataResponse {
+  /**
+   * Aggregate rating. The backend serves this from a *separate* summary
+   * endpoint, so the service fetches it alongside the first page and folds it
+   * into the list payload the hook consumes. On later pages (load-more) the
+   * summary is omitted, since the already-held one is still current.
+   */
   summary?: ProductReviewSummaryResponse;
   items: ReviewResponse[];
   pagination: {
@@ -92,18 +111,31 @@ export interface ProductReviewsDataResponse {
   };
 }
 
-/** POST /reviews (create) request body. */
+/** POST /customer/reviews (create) request body. */
 export interface CreateReviewRequest {
   /** Reviewed product ObjectId. */
   product: string;
   rating: number;
+  /** Optional short headline. */
+  title?: string;
   comment: string;
 }
 
-/** PATCH /reviews/:id request body — partial update. */
+/** POST /customer/reviews/:id/replies (create reply) request body. */
+export interface CreateReplyRequest {
+  text: string;
+}
+
+/** PATCH /customer/reviews/:id request body — partial update. */
 export interface UpdateReviewRequest {
   rating?: number;
+  title?: string;
   comment?: string;
+}
+
+/** PATCH /customer/reviews/:id/replies/:replyId (update reply) request body. */
+export interface UpdateReplyRequest {
+  text: string;
 }
 
 /**
@@ -117,6 +149,18 @@ export interface UpdateReviewRequest {
  */
 export type ReviewSort = "recent" | "highest" | "lowest";
 
+/**
+ * Storefront display shape: a customer-safe review reply.
+ */
+export interface ReviewReply {
+  id: string;
+  authorName: string;
+  authorType: "customer" | "admin";
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Storefront display shape: a customer-safe review. */
 export interface Review {
   id: string;
@@ -128,6 +172,8 @@ export interface Review {
   isOwnReview: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Replies to this review. */
+  replies: ReviewReply[];
 }
 
 /** Storefront display shape: aggregate rating. */
