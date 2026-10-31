@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, LogIn, Package, LogOut } from "lucide-react";
+import { LayoutDashboard, LogIn, Package, KeyRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 const ACCOUNT_NAV_ITEMS = [
   { label: "Overview", href: "/account", icon: LayoutDashboard },
   { label: "Edit Profile", href: "/account/edit", icon: LayoutDashboard },
+  { label: "Change Password", href: "/account/change-password", icon: KeyRound },
   { label: "My Orders", href: "/account/orders", icon: Package },
 ] as const;
 

@@ -9,6 +9,10 @@ export interface Customer {
   facebookName?: string | null;
   facebookProfileUrl?: string | null;
   defaultAddress?: any;
+  /** `password` accounts can change their password; Google accounts cannot. */
+  authType: 'none' | 'password' | 'google';
+  /** True immediately after staff issue a one-time password. */
+  mustChangePassword: boolean;
 }
 
 export interface AuthResult {
@@ -17,7 +21,12 @@ export interface AuthResult {
 }
 
 export const customerAuthService = {
-  async register(data: { name: string; email: string; phone: string; password: string }): Promise<AuthResult> {
+  async register(data: {
+    name: string;
+    email?: string;
+    phone: string;
+    password: string;
+  }): Promise<AuthResult> {
     const res = await fetch(`${API_BASE}/customer/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,14 +48,33 @@ export const customerAuthService = {
     return json.data;
   },
 
-  async googleAuth(credential: string, profile?: { picture?: string }): Promise<AuthResult> {
+  async googleAuth(credential: string): Promise<AuthResult> {
     const res = await fetch(`${API_BASE}/customer/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken: credential, tokenId: credential, picture: profile?.picture }),
+      // The backend verifies this ID token and reads the identity from it.
+      body: JSON.stringify({ idToken: credential }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.message || 'Google auth failed');
+    return json.data;
+  },
+
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ customer: Customer }> {
+    const res = await fetch(`${API_BASE}/customer/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to change password');
     return json.data;
   },
 

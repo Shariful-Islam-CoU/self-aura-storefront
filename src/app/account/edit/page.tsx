@@ -15,6 +15,7 @@ export default function EditAccountPage() {
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -52,6 +53,7 @@ export default function EditAccountPage() {
     ])
       .then(([meRes, addrRes]) => {
         const cust = meRes.customer as any;
+        setCustomer(meRes.customer);
         setForm({
           name: cust.name || "",
           email: cust.email || "",
@@ -185,7 +187,7 @@ export default function EditAccountPage() {
     try {
       await customerAuthService.updateProfile(token, {
         name: form.name,
-        email: form.email,
+        email: form.email.trim() || undefined,
         phone: form.phone || undefined,
         facebookName: form.facebookName || undefined,
         facebookProfileUrl: form.facebookProfileUrl || undefined,
@@ -234,6 +236,13 @@ export default function EditAccountPage() {
   };
 
   if (loading) return <LoadingState label="Loading your profile..." />;
+
+  // Staff reset the password to a one-time value. The backend blocks every
+  // other action until it is replaced, so redirect to the dedicated page.
+  if (customer?.mustChangePassword) {
+    router.replace("/account/change-password");
+    return <LoadingState label="Redirecting..." />;
+  }
 
   return (
     <div className="w-full max-w-2xl">
@@ -316,12 +325,18 @@ export default function EditAccountPage() {
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+            helperText="Optional. You can always sign in with your phone number."
           />
           <Input
             label="Phone"
             type="tel"
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            helperText={
+              form.phone
+                ? undefined
+                : "Add a phone number so couriers can reach you. You will also be asked for one at checkout."
+            }
           />
           <Input
             label="Facebook Name (Optional)"

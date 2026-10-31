@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/layout/Container";
 import { loadProductDetailsPage } from "@/services/catalogService";
 import { loadCatalog } from "@/features/products/lib/catalogLoad";
+import { fetchStoreSocials } from "@/features/home/services/storeSocialsService";
 
 import CatalogError from "@/features/products/components/CatalogError";
 import { ProductBreadcrumbs } from "@/features/products/components/ProductBreadcrumbs";
@@ -151,12 +152,17 @@ function buildProductStructuredData(product: {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
 
+  // Fetch product and messenger URL in parallel
+  const [result, messengerUrl] = await Promise.all([
+    loadCatalog(() => loadProductDetailsPage(slug)),
+    fetchStoreSocials().then((s) => s.messenger).catch(() => ""),
+  ]);
+
   // Render the failure in the page rather than throwing. The route's
   // `error.tsx` boundary exists as a last resort, but a Server Component that
   // throws during the initial render leaves an empty <main> with no visible
   // fallback, which reads as a broken page. Handling it here keeps the site
   // chrome and gives the customer a real message plus a retry.
-  const result = await loadCatalog(() => loadProductDetailsPage(slug));
   if (!result.ok) {
     return <CatalogError error={result.error} action="load" contained />;
   }
@@ -183,7 +189,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             videos={product.videos}
             name={product.name}
           />
-          <ProductInfo product={product} />
+          <ProductInfo product={product} messengerUrl={messengerUrl} />
         </div>
 
         {/* Reviews & Ratings: the last part of the product story, after the

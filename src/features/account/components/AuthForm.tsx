@@ -13,9 +13,11 @@ interface AuthFormProps {
 }
 
 /**
- * Customer authentication placeholder. The form is interactive enough to be
- * honest (submit shows a notice) but no credentials are sent anywhere -
- * real authentication arrives with the backend customer-auth integration.
+ * Sign-in / registration form.
+ *
+ * Phone is the identity anchor for password accounts, so registration always
+ * asks for it; email is optional. A customer whose account was reset by staff
+ * is sent to the password screen first.
  */
 export function AuthForm({ mode }: AuthFormProps) {
   const [notice, setNotice] = useState<string | null>(null);
@@ -23,13 +25,22 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isRegister = mode === "register";
 
+  function redirectAfterAuth(result: { customer: { mustChangePassword: boolean } }) {
+    if (result.customer.mustChangePassword) {
+      window.location.href = "/account/edit?changePassword=1";
+      return;
+    }
+    const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
+    window.location.href = redirect;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     try {
       if (isRegister) {
         const name = formData.get("name") as string;
-        const email = formData.get("email") as string;
+        const email = (formData.get("email") as string)?.trim();
         const phone = formData.get("phone") as string;
         const password = formData.get("password") as string;
         const confirmPassword = formData.get("confirmPassword") as string;
@@ -37,17 +48,20 @@ export function AuthForm({ mode }: AuthFormProps) {
           setNotice("Passwords do not match");
           return;
         }
-        const result = await customerAuthService.register({ name, email, phone, password });
+        const result = await customerAuthService.register({
+          name,
+          email: email || undefined,
+          phone,
+          password,
+        });
         localStorage.setItem("customer_token", result.token);
-        const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-        window.location.href = redirect;
+        redirectAfterAuth(result);
       } else {
         const identifier = formData.get("email") as string;
         const password = formData.get("password") as string;
         const result = await customerAuthService.login(identifier, password);
         localStorage.setItem("customer_token", result.token);
-        const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-        window.location.href = redirect;
+        redirectAfterAuth(result);
       }
     } catch (err: any) {
       setNotice(err.message || "Authentication failed");
@@ -82,14 +96,17 @@ export function AuthForm({ mode }: AuthFormProps) {
         <Input
           id="email"
           name="email"
-          label={isRegister ? "Email" : "Email or phone"}
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
+          label={isRegister ? "Email (optional)" : "Email or phone"}
+          type={isRegister ? "email" : "text"}
+          autoComplete={isRegister ? "email" : "username"}
+          placeholder={isRegister ? "you@example.com" : "you@example.com or 01XXXXXXXXX"}
           required={!isRegister}
         />
         {!isRegister && (
-          <p className="text-xs text-muted-foreground -mt-2">You can also sign in with your phone number</p>
+          <p className="text-xs text-muted-foreground -mt-2">You can sign in with either your email or your phone number</p>
+        )}
+        {isRegister && (
+          <p className="text-xs text-muted-foreground -mt-2">Add an email if you want to sign in with it too; your phone number is enough.</p>
         )}
         <Input
           id="password"
@@ -147,12 +164,11 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       <GoogleButton
-        onSuccess={async (credential, profile) => {
+        onSuccess={async (credential) => {
           try {
             const result = await customerAuthService.googleAuth(credential);
             localStorage.setItem("customer_token", result.token);
-            const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-            window.location.href = redirect;
+            redirectAfterAuth(result);
           } catch (err: any) {
             setNotice(err.message || "Google authentication failed");
           }

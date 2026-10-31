@@ -3,6 +3,7 @@
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { CartProvider } from "@/features/cart/context/CartProvider";
 import { LoginModal } from "@/components/ui/LoginModal";
 
 /**
@@ -61,10 +62,20 @@ function StorefrontShellInner({ children }: { children: React.ReactNode }) {
 
 import { useState, useEffect } from "react";
 
+/**
+ * Storefront chrome + the providers that depend on the signed-in identity.
+ *
+ * `CartProvider` sits INSIDE `AuthProvider` on purpose: the cart is
+ * namespaced per customer, and it must re-hydrate the moment the session
+ * changes - including an in-place login from the checkout modal, which never
+ * navigates or reloads.
+ */
 export function StorefrontShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <StorefrontShellInner>{children}</StorefrontShellInner>
+      <CartProvider>
+        <StorefrontShellInner>{children}</StorefrontShellInner>
+      </CartProvider>
     </AuthProvider>
   );
 }

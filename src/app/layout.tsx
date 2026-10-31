@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { siteConfig } from "@/lib/config/env";
-import { CartProvider } from "@/features/cart/context/CartProvider";
 import { WishlistProvider } from "@/features/wishlist/context/WishlistProvider";
 import { AnalyticsProvider } from "@/lib/analytics/provider";
 
@@ -99,9 +98,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-foreground">
         <AnalyticsProvider>
-          <WishlistProvider>
-            <CartProvider>{children}</CartProvider>
-          </WishlistProvider>
+          {/* The cart provider lives inside StorefrontShell, where it can see
+              the signed-in customer and pick that account's cart namespace. */}
+          <WishlistProvider>{children}</WishlistProvider>
         </AnalyticsProvider>
       </body>
     </html>

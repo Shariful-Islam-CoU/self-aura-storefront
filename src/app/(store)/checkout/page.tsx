@@ -29,7 +29,11 @@ function CheckoutPageClient() {
         setLoading(false);
       })
       .catch(() => {
+        // The token is dead - clear the signed-in state too, so the cart
+        // re-hydrates the guest namespace and a fresh login switches to the
+        // new account's cart.
         localStorage.removeItem("customer_token");
+        setLoggedIn(false);
         setShowLoginModal(true);
         setLoading(false);
       });

@@ -11,11 +11,15 @@ import { availabilityLabel, getAvailability } from "../lib/availability";
 import { AddToCartButton } from "./AddToCartButton";
 import { QuantitySelector } from "./QuantitySelector";
 import { ShareProduct } from "./ShareProduct";
+import { FloatingMessengerButton } from "./FloatingMessengerButton";
+import { buildProductMessage, buildProductMessengerHref } from "../lib/messenger";
 import { siteConfig } from "@/lib/config/env";
 import type { Product } from "@/types";
 
 interface ProductInfoProps {
   product: Product;
+  /** Optional Messenger URL from admin settings (social.messenger) */
+  messengerUrl?: string;
 }
 
 /**
@@ -27,7 +31,7 @@ interface ProductInfoProps {
  * category, SKU. Internal data (costPrice, supplier, notes) is never part of
  * the storefront Product view model and therefore never rendered.
  */
-export function ProductInfo({ product }: ProductInfoProps) {
+export function ProductInfo({ product, messengerUrl }: ProductInfoProps) {
   const [quantity, setQuantity] = useState(1);
   const { status, addToCart } = useAddToCart(product, quantity);
 
@@ -40,6 +44,14 @@ export function ProductInfo({ product }: ProductInfoProps) {
 
   const categoryName = product.category.name;
   const categorySlug = product.category.slug;
+
+  // Compute the Messenger link and the clipboard fallback message once.
+  const messengerMessage = messengerUrl
+    ? buildProductMessage(product, siteConfig.siteUrl)
+    : "";
+  const messengerHref = messengerUrl
+    ? buildProductMessengerHref(messengerUrl, product, siteConfig.siteUrl)
+    : null;
 
   return (
     <section aria-label="Product information" className="lg:sticky lg:top-24 lg:self-start">
@@ -149,6 +161,15 @@ export function ProductInfo({ product }: ProductInfoProps) {
       <p role="status" aria-live="polite" className="sr-only">
         {status === "added" ? "Added to bag" : ""}
       </p>
+
+      {/* Floating Messenger CTA - only renders when messengerUrl is configured and valid */}
+      {messengerHref && (
+        <FloatingMessengerButton
+          href={messengerHref}
+          message={messengerMessage}
+          productName={product.name}
+        />
+      )}
     </section>
   );
 }

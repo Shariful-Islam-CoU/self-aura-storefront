@@ -3,6 +3,13 @@ import type { CartItem } from "../types";
 /**
  * Cart persistence - localStorage wrapper.
  *
+ * Carts are namespaced per identity so accounts on the same browser never
+ * share items:
+ *   - guest              -> "self_aura.cart.v1" (the original key, so carts
+ *                            saved before per-account separation stay visible
+ *                            as the guest cart)
+ *   - signed-in customer -> "self_aura.cart.v1.<customerId>"
+ *
  * Rules that keep this safe:
  *   - never touched during server rendering (`typeof window` guard)
  *   - every read is validated entry-by-entry; malformed data is dropped
@@ -15,13 +22,22 @@ import type { CartItem } from "../types";
  * No payment/credential data is ever stored here.
  */
 
+/** Guest cart key - also the prefix of every account-specific key. */
 export const CART_STORAGE_KEY = "self_aura.cart.v1";
 
+/**
+ * Storage key for one cart owner. `null` means the guest cart.
+ * The id is already validated (24-hex) before it gets here.
+ */
+export function cartStorageKeyFor(customerId: string | null): string {
+  return customerId ? `${CART_STORAGE_KEY}.${customerId}` : CART_STORAGE_KEY;
+}
+
 /** Read + validate the persisted cart. Returns null when absent/unreadable. */
-export function loadCart(): CartItem[] | null {
+export function loadCart(storageKey: string): CartItem[] | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     return validateCartItems(parsed);
@@ -30,15 +46,15 @@ export function loadCart(): CartItem[] | null {
   }
 }
 
-/** Persist the cart (removes the key when empty). Failures are ignored. */
-export function saveCart(items: CartItem[]): void {
+/** Persist one cart (removes its key when empty). Failures are ignored. */
+export function saveCart(storageKey: string, items: CartItem[]): void {
   if (typeof window === "undefined") return;
   try {
     if (items.length === 0) {
-      window.localStorage.removeItem(CART_STORAGE_KEY);
+      window.localStorage.removeItem(storageKey);
       return;
     }
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    window.localStorage.setItem(storageKey, JSON.stringify(items));
   } catch {
     // Storage unavailable (private mode / quota) - keep session cart only.
   }

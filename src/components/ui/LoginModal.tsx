@@ -63,7 +63,7 @@ export function LoginModal({
         }
         result = await customerAuthService.register({
           name: form.name,
-          email: form.email,
+          email: form.email.trim() || undefined,
           phone: form.phone,
           password: form.password,
         });
@@ -72,6 +72,14 @@ export function LoginModal({
       }
       localStorage.setItem("customer_token", result.token);
       setLoading(false);
+      // A staff-issued one-time password must be replaced before the account
+      // can do anything else, so that screen wins over the requested redirect.
+      if (result.customer.mustChangePassword) {
+        onSuccess?.();
+        router.push("/account/edit?changePassword=1");
+        router.refresh();
+        return;
+      }
       // Let the parent react first (e.g. close the modal in-place on /checkout),
       // then navigate for the pages that rely on a redirect.
       onSuccess?.();
@@ -91,7 +99,11 @@ export function LoginModal({
       localStorage.setItem("customer_token", result.token);
       setLoading(false);
       onSuccess?.();
-      router.push(redirectUrl);
+      if (result.customer.mustChangePassword) {
+        router.push("/account/edit?changePassword=1");
+      } else {
+        router.push(redirectUrl);
+      }
       router.refresh();
     } catch (err: any) {
       setError(err.message);
@@ -138,14 +150,6 @@ export function LoginModal({
               autoComplete="name"
             />
           )}
-          <Input
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            required
-            autoComplete="email"
-          />
           {mode === "register" && (
             <Input
               label="Phone"
@@ -156,6 +160,20 @@ export function LoginModal({
               autoComplete="tel"
               placeholder="01XXXXXXXXX"
             />
+          )}
+          <Input
+            label={mode === "register" ? "Email (optional)" : "Email or phone"}
+            type={mode === "register" ? "email" : "text"}
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            required={mode !== "register"}
+            autoComplete={mode === "register" ? "email" : "username"}
+            placeholder={mode === "register" ? "you@example.com" : "you@example.com or 01XXXXXXXXX"}
+          />
+          {mode === "register" && (
+            <p className="text-xs text-muted-foreground -mt-2">
+              Your phone number is enough to create an account. Adding an email lets you sign in with it too.
+            </p>
           )}
           <Input
             label="Password"

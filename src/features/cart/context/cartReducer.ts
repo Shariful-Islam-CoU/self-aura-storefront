@@ -15,8 +15,21 @@ import type { CartItem, CartState } from "../types";
  * The snapshot is advisory only: the backend re-validates availability, price
  * and stock when the order is created.
  */
+
+/**
+ * Reducer state plus the storage namespace the current items belong to.
+ *
+ * Namespacing lives in the reducer (not beside it) so an identity switch can
+ * hydrate items and their key in a single action: persistence then can never
+ * write one account's items into another account's key.
+ */
+export interface CartReducerState extends CartState {
+  /** localStorage key of the active cart; null until the owner is resolved. */
+  storageKey: string | null;
+}
+
 export type CartAction =
-  | { type: "hydrate"; items: CartItem[] }
+  | { type: "hydrate"; items: CartItem[]; storageKey: string }
   | { type: "add"; item: CartItem }
   | { type: "set-quantity"; key: string; quantity: number }
   | { type: "remove"; key: string }
@@ -26,10 +39,10 @@ function maxQuantityFor(item: CartItem): number {
   return item.product.stock > 0 ? item.product.stock : Number.POSITIVE_INFINITY;
 }
 
-export function cartReducer(state: CartState, action: CartAction): CartState {
+export function cartReducer(state: CartReducerState, action: CartAction): CartReducerState {
   switch (action.type) {
     case "hydrate":
-      return { items: action.items, hydrated: true };
+      return { items: action.items, hydrated: true, storageKey: action.storageKey };
 
     case "add": {
       const { item } = action;
