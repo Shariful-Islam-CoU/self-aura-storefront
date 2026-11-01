@@ -169,7 +169,7 @@ export function ProductGallery({ images, videos, name }: ProductGalleryProps) {
           role="tablist"
           aria-label={`${name} media`}
           aria-orientation="horizontal"
-          className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden lg:flex-col lg:overflow-visible lg:pb-0"
+          className="flex flex-wrap gap-2 sm:gap-3 lg:flex-col lg:flex-nowrap lg:overflow-visible"
         >
           {items.map((item, index) => {
             const isActive = index === safeIndex;
@@ -195,7 +195,7 @@ export function ProductGallery({ images, videos, name }: ProductGalleryProps) {
                 aria-selected={isActive}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "relative h-20 w-16 shrink-0 overflow-hidden rounded-md border bg-muted transition-colors",
+                  "relative h-16 w-14 shrink-0 overflow-hidden rounded-md border bg-muted transition-colors sm:h-20 sm:w-16",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   isActive ? "border-accent" : "border-border hover:border-accent/50"
                 )}
