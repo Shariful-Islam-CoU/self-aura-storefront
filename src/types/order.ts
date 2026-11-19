@@ -240,6 +240,10 @@ export interface CustomerShipment {
   status: string;
   courierName?: string;
   trackingNumber?: string;
+  /** Courier tracking page, when the courier issued one. */
+  trackingUrl?: string;
+  /** Cash the rider collects on delivery; absent for a prepaid order. */
+  codAmount?: number;
   shippedAt?: string;
   deliveredAt?: string;
   failedAt?: string;

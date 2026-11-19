@@ -2,12 +2,10 @@
  * Shipment and tracking wire types mirroring the Self Aura backend Shipment
  * API (self_aura_backend: types/shipment.ts and constants/shipment.ts).
  *
- * Today every shipment endpoint is management-auth + permission gated - the
- * backend has no customer-facing tracking API yet. These types are the
- * storefront's copy of the real backend contract so a customer-safe tracking
- * view (order details, courier, tracking number, timeline) can be wired
- * directly to the backend response shapes when that API exists. The backend
- * remains the source of truth for every tracking value.
+ * The customer-facing tracking contract is the customer-safe projection in
+ * `types/order.ts` (`CustomerShipment`), embedded on the order detail response
+ * as `order.shipment`. This file mirrors the management shapes for reference;
+ * every management endpoint is auth + permission gated.
  */
 
 export const SHIPMENT_STATUSES = [

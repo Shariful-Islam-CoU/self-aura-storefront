@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+
+/**
+ * Set on the very first visit and read on every later one. The auto-opening
+ * login dialog is reserved for returning visitors: a first-time visitor should
+ * be able to look around before being asked to sign in.
+ */
+const HAS_VISITED_KEY = "has_visited_before";
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -18,14 +25,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginRequired, setLoginRequired] = useState(false);
   const [loginRedirectUrl, setLoginRedirectUrl] = useState<string | null>(null);
+  // Resolved once per mount. A ref (not state) so React's dev-mode StrictMode
+  // double effect cannot turn the first visit into a "returning" one.
+  const isReturningVisitor = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("customer_token");
-      const dismissed = localStorage.getItem("login_modal_dismissed");
       setIsLoggedIn(!!token);
-      
-      // Show login modal on first visit if not logged in and not dismissed
+
+      if (isReturningVisitor.current === null) {
+        isReturningVisitor.current = localStorage.getItem(HAS_VISITED_KEY) === "true";
+        localStorage.setItem(HAS_VISITED_KEY, "true");
+      }
+
+      // Show the login modal automatically only to visitors who have been here
+      // before - never on their very first visit - and only if they are not
+      // signed in and have not dismissed it.
+      if (!isReturningVisitor.current) return;
+
+      const dismissed = localStorage.getItem("login_modal_dismissed");
       if (!token && !dismissed) {
         // Small delay to let the page render first
         const timer = setTimeout(() => {

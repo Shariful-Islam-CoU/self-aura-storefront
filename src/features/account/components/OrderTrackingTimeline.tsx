@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, formatPrice } from "@/lib/utils/format";
 import { CheckCircle, Truck, Package, AlertCircle, MapPin, XCircle, Circle } from "lucide-react";
 import type { CustomerShipment, CustomerShipmentEvent } from "@/types/order";
 
@@ -190,7 +190,25 @@ export function OrderTrackingTimeline({ orderStatus, shipment, orderCreatedAt }:
             {shipment.trackingNumber && (
               <div>
                 <p className="text-xs font-label uppercase tracking-[0.15em] text-muted-foreground">Tracking #</p>
-                <p className="font-mono text-sm font-medium">{shipment.trackingNumber}</p>
+                {shipment.trackingUrl ? (
+                  <a
+                    href={shipment.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-sm font-medium text-accent underline underline-offset-4"
+                  >
+                    {shipment.trackingNumber}
+                  </a>
+                ) : (
+                  <p className="font-mono text-sm font-medium">{shipment.trackingNumber}</p>
+                )}
+              </div>
+            )}
+
+            {typeof shipment.codAmount === "number" && shipment.codAmount > 0 && (
+              <div>
+                <p className="text-xs font-label uppercase tracking-[0.15em] text-muted-foreground">Cash on delivery</p>
+                <p className="text-sm font-medium">{formatPrice(shipment.codAmount)}</p>
               </div>
             )}
 
