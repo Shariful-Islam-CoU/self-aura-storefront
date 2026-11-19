@@ -22,8 +22,20 @@ function extractPageName(url: string): string | null {
   try {
     const u = new URL(url);
     if (u.hostname === "m.me") return u.pathname.replace(/^\//, "");
-    if (u.hostname === "facebook.com" || u.hostname === "www.facebook.com") {
-      return u.pathname.replace(/^\//, "");
+    if (u.hostname === "facebook.com" || u.hostname === "www.facebook.com" || u.hostname === "m.facebook.com") {
+      // facebook.com/profile.php?id=123 -> the numeric id is the m.me handle.
+      if (u.pathname.replace(/\/+$/, "") === "/profile.php") {
+        const id = u.searchParams.get("id");
+        return id && /^\d+$/.test(id) ? id : null;
+      }
+      const segments = u.pathname.split("/").filter(Boolean);
+      // facebook.com/pages/Some-Name/123 -> the trailing numeric page id.
+      if (segments[0] === "pages") {
+        const last = segments[segments.length - 1];
+        return last && /^\d+$/.test(last) ? last : null;
+      }
+      // facebook.com/PageName -> "PageName" (ignore any trailing path).
+      return segments[0] ?? null;
     }
     return null;
   } catch {

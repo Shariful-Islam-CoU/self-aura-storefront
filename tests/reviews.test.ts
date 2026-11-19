@@ -85,9 +85,9 @@ describe("reviewMappers", () => {
     expect(findOwnReview(reviews)?.id).toBe("other");
   });
 
-  it("collapses an out-of-range rating to the minimum for display", () => {
+  it("shows an out-of-range rating as unrated, never as a genuine 1-star review", () => {
     const review = mapReviewResponse(wireReview({ rating: 9 }));
-    expect(review.rating).toBe(1);
+    expect(review.rating).toBe(0);
   });
 });
 
@@ -179,5 +179,50 @@ describe("reviewsReducer", () => {
     expect(resorted.sort).toBe("highest");
     expect(resorted.status).toBe("loading");
     expect(resorted.reviews).toEqual([]);
+  });
+});
+
+describe("reviewsReducer - stale load-more", () => {
+  it("drops a load-more page requested under a different sort", () => {
+    const first = reviewsReducer(REVIEWS_INITIAL_STATE, {
+      type: "loaded",
+      payload: {
+        items: [wireReview({ id: "a" })],
+        pagination: { page: 1, limit: 5, total: 2, totalPages: 2 },
+      },
+      append: false,
+    });
+    const resorted = reviewsReducer(first, { type: "setSort", sort: "highest" });
+    const stale = reviewsReducer(resorted, {
+      type: "loaded",
+      payload: {
+        items: [wireReview({ id: "b" })],
+        pagination: { page: 2, limit: 5, total: 2, totalPages: 2 },
+      },
+      append: true,
+      forSort: "recent",
+      forAttempt: 0,
+    });
+    expect(stale.reviews).toHaveLength(0);
+  });
+
+  it("de-duplicates reviews that reappear on the next page", () => {
+    const first = reviewsReducer(REVIEWS_INITIAL_STATE, {
+      type: "loaded",
+      payload: {
+        items: [wireReview({ id: "a" })],
+        pagination: { page: 1, limit: 1, total: 2, totalPages: 2 },
+      },
+      append: false,
+    });
+    const next = reviewsReducer(first, {
+      type: "loaded",
+      payload: {
+        items: [wireReview({ id: "a" }), wireReview({ id: "b" })],
+        pagination: { page: 2, limit: 1, total: 2, totalPages: 2 },
+      },
+      append: true,
+    });
+    expect(next.reviews.map((r) => r.id)).toEqual(["a", "b"]);
   });
 });

@@ -42,8 +42,17 @@ const paymentMethodLabels: Record<OrderPaymentMethod, string> = {
 };
 
 export function OrderCard({ order, onViewDetails, onTrackOrder }: OrderCardProps) {
-  const status = statusConfig[order.orderStatus];
-  const paymentStatus = paymentStatusConfig[order.paymentStatus];
+  // Fall back to the raw value for statuses this build doesn't know yet,
+  // instead of crashing the page.
+  const status = statusConfig[order.orderStatus] ?? {
+    label: String(order.orderStatus ?? "Unknown"),
+    variant: "default" as BadgeProps["variant"],
+    icon: null,
+  };
+  const paymentStatus = paymentStatusConfig[order.paymentStatus] ?? {
+    label: String(order.paymentStatus ?? "Unknown"),
+    variant: "default" as BadgeProps["variant"],
+  };
 
   return (
     <Card className="transition-shadow hover:shadow-md">

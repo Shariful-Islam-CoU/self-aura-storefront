@@ -39,7 +39,6 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "/",
     siteName: siteConfig.name,
     title: "Self Aura",
     description: siteConfig.description,
@@ -62,9 +61,9 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  alternates: {
-    canonical: "/",
-  },
+  // No site-wide canonical here: metadata merges shallowly, so a root
+  // canonical of "/" would be inherited by every page that doesn't set its
+  // own (e.g. /shop) and tell search engines it duplicates the home page.
 };
 
 export const viewport: Viewport = {

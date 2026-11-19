@@ -127,6 +127,19 @@ export function ProductGallery({ images, videos, name }: ProductGalleryProps) {
     if (isSingle || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
+    // Arrow keys on a focused <video controls> (or any editable control) are
+    // for seeking/typing - never hijack them to switch slides.
+    const target = event.target as HTMLElement;
+    if (
+      target instanceof HTMLVideoElement ||
+      target instanceof HTMLAudioElement ||
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target.isContentEditable
+    ) {
+      return;
+    }
     switch (event.key) {
       case "ArrowRight":
         goNext();

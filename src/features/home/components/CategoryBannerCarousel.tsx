@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { Category } from "@/types";
@@ -14,33 +14,21 @@ export interface CategoryBannerCarouselProps {
   categories: Category[];
 }
 
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia(REDUCED_MOTION_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/** Subscribes to the OS reduced-motion setting (false during SSR). */
 function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(query.matches);
-
-    const handleChange = () => {
-      setPrefersReducedMotion(query.matches);
-    };
-
-    if (typeof query.addEventListener === "function") {
-      query.addEventListener("change", handleChange);
-    } else if (typeof (query as any).addListener === "function") {
-      (query as any).addListener(handleChange);
-    }
-
-    return () => {
-      if (typeof query.removeEventListener === "function") {
-        query.removeEventListener("change", handleChange);
-      } else if (typeof (query as any).removeListener === "function") {
-        (query as any).removeListener(handleChange);
-      }
-    };
-  }, []);
-
-  return prefersReducedMotion;
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
+    () => false
+  );
 }
 
 export function CategoryBannerCarousel({ categories }: CategoryBannerCarouselProps) {
@@ -81,20 +69,25 @@ export function CategoryBannerCarousel({ categories }: CategoryBannerCarouselPro
   const goToSlide = useCallback(
     (index: number) => {
       if (totalSlides <= 1 || isTransitioning) return;
+      // Already showing it: starting a "transition" to the same index would
+      // leave isTransitioning stuck (no index change -> no effect to clear it)
+      // and freeze the carousel.
+      if (index + 1 === currentIndex) return;
       setIsTransitioning(true);
       setCurrentIndex(index + 1);
     },
-    [totalSlides, isTransitioning]
+    [totalSlides, isTransitioning, currentIndex]
   );
 
-  useEffect(() => {
-    if (totalSlides <= 1) {
-      setCurrentIndex(0);
-      return;
-    }
-    setCurrentIndex(1);
+  // Reset to the first real slide when the number of slides changes. Done
+  // while rendering (React's "adjust state on prop change" pattern) rather
+  // than in an effect, which would cause an extra cascading render.
+  const [prevTotalSlides, setPrevTotalSlides] = useState(totalSlides);
+  if (prevTotalSlides !== totalSlides) {
+    setPrevTotalSlides(totalSlides);
+    setCurrentIndex(totalSlides > 1 ? 1 : 0);
     setIsTransitioning(false);
-  }, [totalSlides]);
+  }
 
   useEffect(() => {
     if (totalSlides <= 1) return;
@@ -189,9 +182,9 @@ export function CategoryBannerCarousel({ categories }: CategoryBannerCarouselPro
   const currentCategory = bannerCategories[currentCategoryIndex];
   const ctaText = currentCategory ? `Shop ${currentCategory.name}` : "Explore Shop";
 
-  const trackTransform = prefersReducedMotion
-    ? "translateX(0)"
-    : `translateX(-${currentIndex * 100}%)`;
+  // Reduced motion still has to show the CURRENT slide - it only drops the
+  // animation (see trackTransition). Slide 0 is the clone of the last one.
+  const trackTransform = `translateX(-${currentIndex * 100}%)`;
 
   const trackTransition = prefersReducedMotion
     ? "none"

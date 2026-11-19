@@ -43,6 +43,7 @@ export async function generateMetadata({ searchParams }: ShopPageProps): Promise
   return {
     title: "Shop",
     description: SHOP_DESCRIPTION,
+    alternates: { canonical: "/shop" },
     ...(search ? { robots: { index: false, follow: true } } : {}),
   };
 }

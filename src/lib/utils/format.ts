@@ -38,6 +38,9 @@ export function formatDate(iso: string): string {
     day: "numeric",
     month: "long",
     year: "numeric",
+    // Fixed zone: a UTC server and a UTC+6 browser must print the same day,
+    // otherwise late-evening timestamps cause a hydration mismatch.
+    timeZone: "Asia/Dhaka",
   }).format(date);
 }
 

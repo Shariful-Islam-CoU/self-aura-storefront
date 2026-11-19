@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 import { CheckCircle, Truck, Package, AlertCircle, MapPin, XCircle, Circle } from "lucide-react";
 import type { CustomerShipment, CustomerShipmentEvent } from "@/types/order";
+import { safeExternalUrl } from "@/lib/utils/url";
 
 interface OrderTrackingTimelineProps {
   orderStatus: string;
@@ -48,6 +49,17 @@ const statusIcons: Record<string, React.ReactNode> = {
   cancelled: <XCircle className="h-4 w-4" />,
   returned: <AlertCircle className="h-4 w-4" />,
 };
+
+/** Colour for a tracking-history icon. The muted default is only the fallback
+ * (twMerge would otherwise let a trailing default override the status tone). */
+function eventTone(status: string): string {
+  if (status === "delivered") return "bg-success/10 text-success";
+  if (status === "shipped" || status === "in_transit") return "bg-primary/10 text-primary";
+  if (status === "delivery_failed" || status === "returned_to_seller") {
+    return "bg-destructive/10 text-destructive";
+  }
+  return "bg-muted text-muted-foreground";
+}
 
 function formatStatusLabel(status: string): string {
   return statusLabels[status] ?? status.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
@@ -95,6 +107,27 @@ export function OrderTrackingTimeline({ orderStatus, shipment, orderCreatedAt }:
 
   return (
     <div className="space-y-6">
+      {/* Terminal states are not steps on the delivery timeline, so state them
+          explicitly instead of leaving every step greyed out. */}
+      {isCancelled && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <span className="text-destructive" aria-hidden="true">
+            {statusIcons[orderStatus]}
+          </span>
+          <div>
+            <p className="font-semibold text-sm text-destructive">
+              {orderStatus === "cancelled" ? "This order was cancelled" : "This order was returned"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Contact Self Aura if you have any questions about this order.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Order Status Timeline */}
       <div className="relative">
         {/* Vertical line */}
@@ -190,9 +223,9 @@ export function OrderTrackingTimeline({ orderStatus, shipment, orderCreatedAt }:
             {shipment.trackingNumber && (
               <div>
                 <p className="text-xs font-label uppercase tracking-[0.15em] text-muted-foreground">Tracking #</p>
-                {shipment.trackingUrl ? (
+                {safeExternalUrl(shipment.trackingUrl) ? (
                   <a
-                    href={shipment.trackingUrl}
+                    href={safeExternalUrl(shipment.trackingUrl) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-mono text-sm font-medium text-accent underline underline-offset-4"
@@ -276,13 +309,7 @@ export function OrderTrackingTimeline({ orderStatus, shipment, orderCreatedAt }:
                       <div
                         className={cn(
                           "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-sm",
-                          event.toStatus === "delivered" && "bg-success/10 text-success",
-                          (event.toStatus === "shipped" || event.toStatus === "in_transit") &&
-                            "bg-primary/10 text-primary",
-                          (event.toStatus === "delivery_failed" ||
-                            event.toStatus === "returned_to_seller") &&
-                            "bg-destructive/10 text-destructive",
-                          "bg-muted text-muted-foreground"
+                          eventTone(event.toStatus)
                         )}
                       >
                         {statusIcons[event.toStatus] || <Circle className="h-4 w-4" />}
@@ -304,7 +331,8 @@ export function OrderTrackingTimeline({ orderStatus, shipment, orderCreatedAt }:
       )}
 
       {/* No shipment yet */}
-      {!shipment && orderStatus !== "pending" && orderStatus !== "confirmed" && (
+      {!shipment &&
+        !["pending", "confirmed", "cancelled", "returned", "delivered"].includes(orderStatus) && (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center">
           <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
           <h3 className="font-semibold mb-1">Shipment Not Created Yet</h3>

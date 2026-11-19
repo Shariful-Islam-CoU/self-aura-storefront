@@ -10,6 +10,8 @@ interface CatalogErrorProps {
   action?: "load" | "search";
   /** Hide the surrounding page padding when nested inside a page layout. */
   contained?: boolean;
+  /** URL of the failed page, so "Try again" re-requests it. */
+  retryHref?: string;
 }
 
 /**
@@ -23,7 +25,12 @@ interface CatalogErrorProps {
  * Retry is a plain link back to the same URL, which re-runs the server
  * component and therefore re-issues the catalogue request.
  */
-export default function CatalogError({ error, action = "load", contained = false }: CatalogErrorProps) {
+export default function CatalogError({
+  error,
+  action = "load",
+  contained = false,
+  retryHref = "/shop",
+}: CatalogErrorProps) {
   const view = toCatalogErrorView(error, action);
 
   const state = <ErrorState title={view.title} description={view.description} />;
@@ -31,7 +38,7 @@ export default function CatalogError({ error, action = "load", contained = false
   const actions = (
     <div className="mt-6 flex flex-wrap justify-center gap-3">
       <Button asChild variant="outline">
-        <Link href="/shop">Try again</Link>
+        <Link href={retryHref}>Try again</Link>
       </Button>
       <Button asChild variant="ghost">
         <Link href="/">Back to home</Link>

@@ -27,6 +27,7 @@ export function RatingSummary({ summary, className }: RatingSummaryProps) {
     return { star, count: distribution[star as 1 | 2 | 3 | 4 | 5] };
   });
   const maxCount = rows.reduce((max, row) => Math.max(max, row.count), 0);
+  const totalCount = rows.reduce((sum, row) => sum + row.count, 0);
 
   return (
     <div className={cn("grid gap-8 sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-10", className)}>
@@ -56,7 +57,9 @@ export function RatingSummary({ summary, className }: RatingSummaryProps) {
         {hasDistribution && maxCount > 0 && (
           <ul className="mt-4 space-y-2">
             {rows.map(({ star, count }) => {
-              const percent = maxCount === 0 ? 0 : Math.round((count / maxCount) * 100);
+              // Share of ALL reviews (not relative to the most common star), so
+              // one 5★ and one 1★ review show two half-width bars.
+              const percent = totalCount === 0 ? 0 : Math.round((count / totalCount) * 100);
               const label = `${star} ${star === 1 ? "star" : "stars"}`;
 
               return (

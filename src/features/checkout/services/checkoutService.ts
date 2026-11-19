@@ -82,7 +82,9 @@ export function buildCreateOrderRequest(
   const note = address.deliveryNote.trim();
   const manual = isManualPaymentMethod(values.paymentMethod);
   const transactionId = manual ? values.manualPayment.transactionId.trim() : undefined;
-  const senderPhone = manual ? values.manualPayment.senderPhone.trim() : undefined;
+  const senderPhone = manual
+    ? normalizeBangladeshPhone(values.manualPayment.senderPhone)
+    : undefined;
 
   return {
     items: items.map((item) => ({ product: item.product.id, quantity: item.quantity })),
@@ -113,7 +115,12 @@ export function buildCreateOrderRequest(
 
 /** Place the order. Returns the backend-confirmed order (real order number). */
 export async function createOrder(request: CreateOrderRequest, token?: string): Promise<OrderResponse> {
-  const envelope = await api.post<ApiResponse<CreateOrderEnvelope> | null>("/public/orders", request, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+  const envelope = await api.post<ApiResponse<CreateOrderEnvelope> | null>("/public/orders", request, {
+    // Placing an order can be slow (stock transaction); a premature client
+    // timeout risks the customer retrying an order that actually succeeded.
+    timeoutMs: 45_000,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
+  });
   const order = envelope?.data?.order;
   if (!isOrderResponse(order)) {
     // The API answered but returned something unexpected - treat as a server
@@ -195,19 +202,39 @@ export function toCheckoutOrderError(error: unknown): CheckoutOrderError {
         return unavailableReview(
           "Some items in your cart are no longer available. Please review your cart before placing the order."
         );
+      case 400:
+      case 422:
+        return {
+          category: "validation",
+          title: "We couldn't place this order",
+          description:
+            "Some of the order details weren't accepted. Please check your details and try again.",
+          reviewCart: false,
+        };
       default:
+        if (error.status >= 500) {
+          return {
+            category: "server",
+            title: "Something went wrong on our side",
+            description: "We couldn't place your order right now. Please try again in a moment.",
+            reviewCart: false,
+          };
+        }
         return {
           category: "unknown",
           title: "Something went wrong",
-          description: error.message || "An unexpected error occurred during checkout.",
+          description: "An unexpected error occurred during checkout.",
           reviewCart: false,
         };
     }
   }
+  // No usable answer from the server (offline, timeout, malformed response):
+  // the order may still have been created, so don't invite a blind retry.
   return {
-    category: "unknown",
-    title: "Something went wrong",
-    description: "An unexpected error occurred during checkout.",
+    category: "network",
+    title: "We couldn't confirm your order",
+    description:
+      "Your order may still have been placed. Please check My Orders (or Track Order) before trying again.",
     reviewCart: false,
   };
 }

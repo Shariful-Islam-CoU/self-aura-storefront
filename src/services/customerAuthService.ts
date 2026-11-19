@@ -1,5 +1,20 @@
-import { siteConfig } from "@/lib/config/env";
-const API_BASE = siteConfig.apiUrl;
+import { api, ApiError } from "@/lib/api/client";
+
+export interface CustomerAddress {
+  _id?: string;
+  id?: string;
+  label?: string;
+  recipientName?: string;
+  phone?: string;
+  addressLine?: string;
+  area?: string;
+  district?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
+  isDefault?: boolean;
+  [key: string]: unknown;
+}
 
 export interface Customer {
   name: string;
@@ -8,9 +23,9 @@ export interface Customer {
   avatarUrl?: string | null;
   facebookName?: string | null;
   facebookProfileUrl?: string | null;
-  defaultAddress?: any;
+  defaultAddress?: CustomerAddress;
   /** `password` accounts can change their password; Google accounts cannot. */
-  authType: 'none' | 'password' | 'google';
+  authType: "none" | "password" | "google";
   /** True immediately after staff issue a one-time password. */
   mustChangePassword: boolean;
 }
@@ -20,162 +35,130 @@ export interface AuthResult {
   token: string;
 }
 
+export interface ProfileUpdate {
+  name?: string;
+  email?: string;
+  phone?: string;
+  facebookName?: string;
+  facebookProfileUrl?: string;
+  [key: string]: unknown;
+}
+
+export interface AddressesResult {
+  addresses: CustomerAddress[];
+  [key: string]: unknown;
+}
+
+/**
+ * Customer auth/profile endpoints.
+ *
+ * Goes through the shared API client, so every call has a timeout, tolerates
+ * non-JSON error pages (e.g. a proxy 502) and throws an `ApiError` carrying
+ * the HTTP status. Callers use `isAuthError` to tell an expired session (401)
+ * apart from a transient failure - only the former should sign the customer
+ * out.
+ */
+type Envelope<T> = { success?: boolean; data: T; message?: string };
+
+async function unwrap<T>(promise: Promise<Envelope<T> | null>, fallbackMessage: string): Promise<T> {
+  try {
+    const json = await promise;
+    if (!json || json.data === undefined) throw new ApiError(500, fallbackMessage, json);
+    return json.data;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    // Transport failure (offline, timeout): replace the raw "Failed to fetch".
+    throw new ApiError(0, "We couldn't reach Self Aura. Please check your connection and try again.");
+  }
+}
+
+const auth = (token: string) => ({ headers: { Authorization: `Bearer ${token}` } });
+
 export const customerAuthService = {
-  async register(data: {
-    name: string;
-    email?: string;
-    phone: string;
-    password: string;
-  }): Promise<AuthResult> {
-    const res = await fetch(`${API_BASE}/customer/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Registration failed');
-    return json.data;
+  register(data: { name: string; email?: string; phone: string; password: string }) {
+    return unwrap<AuthResult>(
+      api.post("/customer/auth/register", data),
+      "Registration failed"
+    );
   },
 
-  async login(identifier: string, password: string): Promise<AuthResult> {
-    const res = await fetch(`${API_BASE}/customer/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier, password }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Login failed');
-    return json.data;
+  login(identifier: string, password: string) {
+    return unwrap<AuthResult>(
+      api.post("/customer/auth/login", { identifier, password }),
+      "Login failed"
+    );
   },
 
-  async googleAuth(credential: string): Promise<AuthResult> {
-    const res = await fetch(`${API_BASE}/customer/auth/google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      // The backend verifies this ID token and reads the identity from it.
-      body: JSON.stringify({ idToken: credential }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Google auth failed');
-    return json.data;
+  googleAuth(credential: string) {
+    // The backend verifies this ID token and reads the identity from it.
+    return unwrap<AuthResult>(
+      api.post("/customer/auth/google", { idToken: credential }),
+      "Google auth failed"
+    );
   },
 
-  async changePassword(
-    token: string,
-    currentPassword: string,
-    newPassword: string
-  ): Promise<{ customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customer/auth/change-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to change password');
-    return json.data;
+  changePassword(token: string, currentPassword: string, newPassword: string) {
+    return unwrap<{ customer: Customer }>(
+      api.post("/customer/auth/change-password", { currentPassword, newPassword }, auth(token)),
+      "Failed to change password"
+    );
   },
 
-  async getMe(token: string): Promise<{ customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customer/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to get profile');
-    return json.data;
+  getMe(token: string) {
+    return unwrap<{ customer: Customer }>(
+      api.get("/customer/auth/me", auth(token)),
+      "Failed to get profile"
+    );
   },
 
-  async updateProfile(token: string, data: any): Promise<{ customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customer/profile`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to update profile');
-    return json.data;
+  updateProfile(token: string, data: ProfileUpdate) {
+    return unwrap<{ customer: Customer }>(
+      api.patch("/customer/profile", data, auth(token)),
+      "Failed to update profile"
+    );
   },
 
-  async getAddresses(token: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/customer/addresses`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to get addresses');
-    return json.data;
+  getAddresses(token: string) {
+    return unwrap<AddressesResult>(
+      api.get("/customer/addresses", auth(token)),
+      "Failed to get addresses"
+    );
   },
 
-  async addAddress(token: string, data: any): Promise<any> {
-    const res = await fetch(`${API_BASE}/customer/addresses`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to add address');
-    return json.data;
+  addAddress(token: string, data: Partial<CustomerAddress>) {
+    return unwrap<{ address?: CustomerAddress; addresses?: CustomerAddress[] }>(
+      api.post("/customer/addresses", data, auth(token)),
+      "Failed to add address"
+    );
   },
 
-  async updateAddress(token: string, addressId: string, data: any): Promise<any> {
-    const res = await fetch(`${API_BASE}/customer/addresses/${addressId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(data),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to update address');
-    return json.data;
+  updateAddress(token: string, addressId: string, data: Partial<CustomerAddress>) {
+    return unwrap<{ address?: CustomerAddress; addresses?: CustomerAddress[] }>(
+      api.patch(`/customer/addresses/${encodeURIComponent(addressId)}`, data, auth(token)),
+      "Failed to update address"
+    );
   },
 
-  async updateAvatar(token: string, avatarUrl: string | null): Promise<{ customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ avatarUrl }),
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to update avatar');
-    return json.data;
+  updateAvatar(token: string, avatarUrl: string | null) {
+    return unwrap<{ customer: Customer }>(
+      api.patch("/customer/profile/avatar", { avatarUrl }, auth(token)),
+      "Failed to update avatar"
+    );
   },
 
-  async uploadAvatar(token: string, file: File): Promise<{ customer: Customer }> {
+  uploadAvatar(token: string, file: File) {
     const formData = new FormData();
-    formData.append('avatar', file);
-    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to upload avatar');
-    return json.data;
+    formData.append("avatar", file);
+    return unwrap<{ customer: Customer }>(
+      api.post("/customer/profile/avatar", formData, { ...auth(token), timeoutMs: 60_000 }),
+      "Failed to upload avatar"
+    );
   },
 
-  async deleteAvatar(token: string): Promise<{ customer: Customer }> {
-    const res = await fetch(`${API_BASE}/customer/profile/avatar`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.message || 'Failed to delete avatar');
-    return json.data;
+  deleteAvatar(token: string) {
+    return unwrap<{ customer: Customer }>(
+      api.delete("/customer/profile/avatar", auth(token)),
+      "Failed to delete avatar"
+    );
   },
 };

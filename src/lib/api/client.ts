@@ -12,7 +12,7 @@ import { siteConfig } from "@/lib/config/env";
  */
 
 export interface RequestOptions extends Omit<RequestInit, "body"> {
-  /** JSON body - serialized automatically. */
+  /** JSON body - serialized automatically. A FormData body is sent as-is. */
   body?: unknown;
   /**
    * Default abort timeout. The caller can still pass an `AbortSignal` in
@@ -45,34 +45,52 @@ function buildUrl(path: string): string {
   return `${siteConfig.apiUrl}${normalized}`;
 }
 
-function buildHeaders(headers?: HeadersInit): Headers {
+function buildHeaders(headers: HeadersInit | undefined, hasBody: boolean): Headers {
   const result = new Headers(headers);
   if (!result.has("Accept")) result.set("Accept", "application/json");
-  if (!result.has("Content-Type")) result.set("Content-Type", "application/json");
+  // Only declare a JSON body when there is one: a Content-Type on a GET turns
+  // every cross-origin read into a CORS preflight for no reason.
+  if (hasBody && !result.has("Content-Type")) result.set("Content-Type", "application/json");
   return result;
+}
+
+/** Aborts when ANY of the given signals aborts (caller signal + timeout). */
+function anySignal(signals: AbortSignal[]): AbortSignal {
+  if (signals.length === 1) return signals[0];
+  if (typeof AbortSignal.any === "function") return AbortSignal.any(signals);
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
+  }
+  return controller.signal;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { timeoutMs = 15_000, body, signal, headers, ...rest } = options;
 
-  const timeoutController =
-    typeof AbortController === "undefined" ? null : new AbortController();
-  const timeoutId =
-    timeoutController && signal
-      ? undefined
-      : timeoutController
-        ? setTimeout(() => timeoutController.abort(), timeoutMs)
-        : undefined;
+  // The timeout always applies, even when the caller passes its own signal.
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), timeoutMs);
+  const signals = signal ? [signal, timeoutController.signal] : [timeoutController.signal];
 
-  const response = await fetch(buildUrl(path), {
-    ...rest,
-    headers: buildHeaders(headers),
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: signal ?? timeoutController?.signal,
-    cache: "no-store",
-  });
-
-  if (timeoutId) clearTimeout(timeoutId);
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), {
+      ...rest,
+      // FormData sets its own multipart Content-Type (with boundary).
+      headers: buildHeaders(headers, body !== undefined && !isFormData),
+      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      signal: anySignal(signals),
+      cache: "no-store",
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const contentType = response.headers.get("content-type") ?? "";
   const payload = contentType.includes("application/json")
@@ -114,3 +132,7 @@ export const api = {
   delete: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "DELETE" }),
 };
+/** True when the backend rejected the session (expired/invalid token). */
+export function isAuthError(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}

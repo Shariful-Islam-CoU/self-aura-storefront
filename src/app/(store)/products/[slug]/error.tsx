@@ -10,7 +10,8 @@ import CatalogErrorBoundary from "@/features/products/components/CatalogErrorBou
  */
 export default function ProductPageError(props: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry?: () => void;
+  reset?: () => void;
 }) {
   return <CatalogErrorBoundary {...props} />;
 }

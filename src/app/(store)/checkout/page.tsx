@@ -6,10 +6,11 @@ import { CheckoutPageView } from "@/features/checkout/components/CheckoutPageVie
 import { LoginModal } from "@/components/ui/LoginModal";
 import { customerAuthService } from "@/services/customerAuthService";
 import { useAuth } from "@/contexts/AuthContext";
+import { isAuthError } from "@/lib/api/client";
 
 function CheckoutPageClient() {
   const router = useRouter();
-  const { setLoggedIn, closeLoginModal } = useAuth();
+  const { setLoggedIn, closeLoginModal, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -28,13 +29,18 @@ function CheckoutPageClient() {
         setLoggedIn(true);
         setLoading(false);
       })
-      .catch(() => {
-        // The token is dead - clear the signed-in state too, so the cart
-        // re-hydrates the guest namespace and a fresh login switches to the
-        // new account's cart.
-        localStorage.removeItem("customer_token");
-        setLoggedIn(false);
-        setShowLoginModal(true);
+      .catch((error) => {
+        if (isAuthError(error)) {
+          // The token is dead - clear the signed-in state too, so the cart
+          // re-hydrates the guest namespace and a fresh login switches to the
+          // new account's cart.
+          signOut();
+          setShowLoginModal(true);
+        } else {
+          // Transient failure (offline / 5xx): keep the session; the order
+          // request itself is authorised by the backend.
+          setLoggedIn(true);
+        }
         setLoading(false);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps

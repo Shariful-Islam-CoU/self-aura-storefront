@@ -38,28 +38,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Ignore errors - categories will be empty
   }
 
-  // Fetch products
-  let productPages: MetadataRoute.Sitemap = [];
-  try {
-    // Fetch first page of products to get an idea; in production, you'd paginate through all
+  // Fetch products. The public catalogue caps a page at 48 items (larger
+  // limits are rejected with a 400), so walk every page. A safety cap keeps a
+  // misbehaving pagination response from looping forever.
+  const SITEMAP_PAGE_SIZE = 48;
+  const MAX_PAGES = 200;
+  const productPages: MetadataRoute.Sitemap = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
     const productsResult = await loadCatalog(() =>
       catalogService.fetchProducts({
-        page: 1,
-        limit: 1000,
+        page,
+        limit: SITEMAP_PAGE_SIZE,
         sortBy: "createdAt",
         sortOrder: "desc",
       })
     );
-    if (productsResult.ok && productsResult.value) {
-      productPages = productsResult.value.items.map((product) => ({
+    if (!productsResult.ok || !productsResult.value) break;
+    const { items, pagination } = productsResult.value;
+    for (const product of items) {
+      productPages.push({
         url: `${baseUrl}/products/${product.slug}`,
-        lastModified: new Date(),
-        changeFrequency: "weekly" as const,
+        changeFrequency: "weekly",
         priority: 0.7,
-      }));
+      });
     }
-  } catch {
-    // Ignore errors - products will be empty
+    if (items.length === 0 || page >= (pagination?.totalPages ?? 1)) break;
   }
 
   return [...staticPages, ...categoryPages, ...productPages];

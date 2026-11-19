@@ -27,7 +27,10 @@ export function AccountNav() {
   return (
     <nav aria-label="Account" className="flex flex-col gap-1 lg:sticky lg:top-24">
       {ACCOUNT_NAV_ITEMS.map(({ label, href, icon: Icon }) => {
-        const isActive = pathname === href || pathname.startsWith(`${href}/`);
+        // "/account" (Overview) is a prefix of every account page, so it only
+        // matches exactly; the other sections also match their sub-pages.
+        const isActive =
+          pathname === href || (href !== "/account" && pathname.startsWith(`${href}/`));
         return (
           <Link
             key={href}

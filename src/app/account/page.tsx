@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { customerAuthService, Customer } from "@/services/customerAuthService";
+import { customerAuthService, Customer, type CustomerAddress } from "@/services/customerAuthService";
 import { Button } from "@/components/ui/Button";
 import { Separator } from "@/components/ui/Separator";
 import { Avatar } from "@/components/ui/Avatar";
 import { LoadingState } from "@/components/ui/LoadingState";
+import { safeExternalUrl } from "@/lib/utils/url";
+import { isAuthError } from "@/lib/api/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AccountPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [addresses, setAddresses] = useState<any[]>([]);
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const token = localStorage.getItem("customer_token");
@@ -36,14 +40,18 @@ export default function AccountPage() {
         setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
         setLoading(false);
-        localStorage.removeItem("customer_token");
+        if (isAuthError(err)) {
+          signOut();
+          window.location.href = "/login?redirect=/account";
+          return;
+        }
+        setError(err.message);
       });
-  }, []);
+  }, [signOut]);
 
   const handleLogout = () => {
-    localStorage.removeItem("customer_token");
+    signOut();
     window.location.href = "/";
   };
 
@@ -62,7 +70,7 @@ export default function AccountPage() {
     );
   }
 
-  const cust = customer as any;
+  const cust = customer;
   const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0];
 
   return (
@@ -99,11 +107,11 @@ export default function AccountPage() {
               <p className="mt-1">{cust.facebookName}</p>
             </div>
           )}
-          {cust?.facebookProfileUrl && (
+          {cust?.facebookProfileUrl && safeExternalUrl(cust.facebookProfileUrl) && (
             <div>
               <p className="text-sm text-muted-foreground">Facebook Profile</p>
               <p className="mt-1">
-                <a href={cust.facebookProfileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
+                <a href={safeExternalUrl(cust.facebookProfileUrl) ?? undefined} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
                   {cust.facebookProfileUrl}
                 </a>
               </p>

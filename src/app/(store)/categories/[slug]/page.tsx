@@ -21,6 +21,7 @@ import {
   SORT_TO_QUERY,
 } from "@/features/products/lib/catalogParams";
 import { siteConfig } from "@/lib/config/env";
+import { serializeJsonLd } from "@/lib/utils/url";
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
@@ -58,9 +59,6 @@ export async function generateMetadata({
   }
   const category = result.value;
 
-  // Build JSON-LD structured data for ItemList (category page)
-  const structuredData = buildCategoryStructuredData(category);
-
   return {
     title: category.name,
     description:
@@ -75,9 +73,6 @@ export async function generateMetadata({
       images: category.thumbnail
         ? [{ url: category.thumbnail.url, alt: category.thumbnail.alt }]
         : undefined,
-    },
-    other: {
-      "script:ld+json": structuredData,
     },
     // Same rationale as /shop: a search term is arbitrary customer input, so
     // the resulting URL is crawlable but not indexed.
@@ -94,16 +89,16 @@ function buildCategoryStructuredData(category: {
 }): string {
   const data = {
     "@context": "https://schema.org",
-    "@type": "ItemList",
+    // CollectionPage, not ItemList: products load separately, and an empty
+    // ItemList would tell search engines this category has no products.
+    "@type": "CollectionPage",
     name: `${category.name} - ${siteConfig.name}`,
     description: category.description ?? `Browse the ${category.name} collection at Self Aura.`,
     url: `${siteConfig.siteUrl}/categories/${category.slug}`,
     image: category.thumbnail?.url,
-    itemListElement: [], // Empty for category page - products are rendered client-side
-    numberOfItems: 0,
   };
 
-  return JSON.stringify(data);
+  return serializeJsonLd(data);
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
@@ -124,7 +119,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   if (!categoryResult.ok) {
     return (
       <Container className="py-12 sm:py-16">
-        <CatalogError error={categoryResult.error} action={search ? "search" : "load"} />
+        <CatalogError
+          error={categoryResult.error}
+          action={search ? "search" : "load"}
+          retryHref={`/categories/${encodeURIComponent(slug)}`}
+        />
       </Container>
     );
   }
@@ -179,7 +178,11 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         {breadcrumb}
         {header}
         <div className="mt-10">
-          <CatalogError error={productsResult.error} action={search ? "search" : "load"} />
+          <CatalogError
+            error={productsResult.error}
+            action={search ? "search" : "load"}
+            retryHref={`/categories/${encodeURIComponent(slug)}`}
+          />
         </div>
       </Container>
     );
@@ -204,7 +207,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
         {header}
 
         <div className="mt-8">
-          <CatalogToolbar search={search} sort={sort} category={category.id} baseHref={baseHref} />
+          {/* The route already fixes the category; adding ?category= would only
+              create duplicate URLs for the same page. */}
+          <CatalogToolbar search={search} sort={sort} baseHref={baseHref} />
         </div>
 
         {/*

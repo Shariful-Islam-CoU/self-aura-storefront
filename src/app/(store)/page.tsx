@@ -13,7 +13,9 @@ import {
 import { catalogService } from "@/services/catalogService";
 
 export const metadata: Metadata = {
-  title: "Self Aura | Discover Your Style",
+  // Absolute: the root title template would otherwise append "· Self Aura".
+  title: { absolute: "Self Aura | Discover Your Style" },
+  alternates: { canonical: "/" },
   description:
     "Discover Your Aura — an elegant, hand-curated edit of fashion, jewelry and accessories for your everyday expression. Explore the Self Aura collection.",
 };

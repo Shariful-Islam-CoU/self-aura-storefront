@@ -8,7 +8,10 @@ import { toCatalogErrorView } from "../lib/catalogErrors";
 
 interface CatalogErrorBoundaryProps {
   error: Error & { digest?: string };
-  reset: () => void;
+  /** Next 16.3: re-fetches and re-renders the segment (preferred). */
+  retry?: () => void;
+  /** Re-renders WITHOUT re-fetching - only a fallback for older callers. */
+  reset?: () => void;
   action?: "load" | "search";
 }
 
@@ -28,6 +31,7 @@ interface CatalogErrorBoundaryProps {
  */
 export default function CatalogErrorBoundary({
   error,
+  retry,
   reset,
   action = "load",
 }: CatalogErrorBoundaryProps) {
@@ -38,7 +42,7 @@ export default function CatalogErrorBoundary({
       <ErrorState
         title={view.title}
         description={view.description}
-        onRetry={reset}
+        onRetry={retry ?? reset}
         retryLabel="Try again"
       />
       <div className="mt-6 flex flex-wrap justify-center gap-3">

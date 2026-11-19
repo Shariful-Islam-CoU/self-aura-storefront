@@ -1,6 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
+import Script from "next/script";
+import { usePathname } from "next/navigation";
+import { ga4Provider } from "./ga4";
 
 interface AnalyticsContextValue {
   isEnabled: boolean;
@@ -8,51 +11,47 @@ interface AnalyticsContextValue {
 
 const AnalyticsContext = createContext<AnalyticsContextValue | null>(null);
 
-interface AnalyticsProviderProps {
-  children: ReactNode;
-}
+// Read literally so Next.js inlines it into the browser bundle.
+const RAW_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() ?? "";
+const MEASUREMENT_ID = /^G-[A-Z0-9]+$/.test(RAW_MEASUREMENT_ID) ? RAW_MEASUREMENT_ID : null;
 
 /**
- * Analytics provider component.
+ * Analytics provider, mounted once at the root.
  *
- * Initializes the active analytics provider (GA4 or noop) and provides
- * it via context. Wraps the application at the root level so all
- * components can access analytics via the useAnalytics hook.
- *
- * Must be a client component because it uses the GA4 script which
- * requires the window object.
+ * When a valid GA4 measurement id is configured it loads gtag.js, initialises
+ * the GA4 provider exactly once, and reports a `page_view` on every
+ * client-side navigation (the App Router never reloads the page, so GA's
+ * automatic page view would only ever fire for the landing page).
  */
-export function AnalyticsProvider({ children }: AnalyticsProviderProps) {
-  const [isEnabled, setIsEnabled] = useState(false);
+export function AnalyticsProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const lastPath = useRef<string | null>(null);
 
   useEffect(() => {
-    // Initialize the provider on the client side only
-    if (typeof window !== "undefined") {
-      const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
-      const hasValidId = measurementId && /^G-[A-Z0-9]+$/.test(measurementId);
-
-      if (hasValidId) {
-        // Initialize GA4
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = function gtag(...args: unknown[]) {
-          (window.dataLayer as unknown[]).push(args);
-        };
-        window.gtag("js", new Date());
-        const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
-        if (measurementId && /^G-[A-Z0-9]+$/.test(measurementId)) {
-          window.gtag("config", measurementId, {
-            send_page_view: false,
-          });
-        }
-        setTimeout(() => setIsEnabled(true), 0);
-      } else {
-        setTimeout(() => setIsEnabled(false), 0);
-      }
-    }
+    if (!MEASUREMENT_ID) return;
+    ga4Provider.init();
   }, []);
 
+  useEffect(() => {
+    if (!MEASUREMENT_ID || typeof window.gtag !== "function") return;
+    const path = window.location.pathname + window.location.search;
+    if (path === lastPath.current) return;
+    lastPath.current = path;
+    window.gtag("event", "page_view", {
+      page_path: path,
+      page_location: window.location.href,
+      page_title: document.title,
+    });
+  }, [pathname]);
+
   return (
-    <AnalyticsContext.Provider value={{ isEnabled }}>
+    <AnalyticsContext.Provider value={{ isEnabled: MEASUREMENT_ID !== null }}>
+      {MEASUREMENT_ID && (
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`}
+          strategy="afterInteractive"
+        />
+      )}
       {children}
     </AnalyticsContext.Provider>
   );

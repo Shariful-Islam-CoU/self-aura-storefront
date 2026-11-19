@@ -16,7 +16,10 @@ import type { WishlistViewStatus } from "../types";
 
 type WishlistResults = Record<
   string,
-  { state: "loaded"; product: Product } | { state: "missing" }
+  | { state: "loaded"; product: Product }
+  | { state: "missing" }
+  /** Transient failure (5xx / timeout): NOT proof the product is gone. */
+  | { state: "failed" }
 >;
 
 /**
@@ -70,7 +73,9 @@ export function WishlistView() {
             next[item.id] =
               item.status === "loaded"
                 ? { state: "loaded", product: item.product }
-                : { state: "missing" };
+                : item.notFound
+                  ? { state: "missing" }
+                  : { state: "failed" };
           }
           return next;
         });
@@ -130,14 +135,35 @@ export function WishlistView() {
   }
 
   // Render in wishlist order (order added); any id not yet resolved is skipped
-  // for this frame and appears as soon as its fetch lands.
+  // for this frame and appears as soon as its fetch lands. Transient failures
+  // are hidden (not shown as "no longer available") and offered a retry.
   const cards = productIds
     .map((id) => ({ id, result: results[id] }))
-    .filter((entry): entry is { id: string; result: WishlistResults[string] } =>
-      Boolean(entry.result)
+    .filter(
+      (entry): entry is { id: string; result: Exclude<WishlistResults[string], { state: "failed" }> } =>
+        Boolean(entry.result) && entry.result.state !== "failed"
     );
+  const failedIds = productIds.filter((id) => results[id]?.state === "failed");
+
+  function retryFailed() {
+    setResults((prev) => {
+      const next: WishlistResults = { ...prev };
+      for (const id of failedIds) delete next[id];
+      return next;
+    });
+  }
 
   return (
+    <>
+    {failedIds.length > 0 && (
+      <p role="status" className="mb-6 text-sm text-muted-foreground">
+        {failedIds.length === 1 ? "One saved item" : `${failedIds.length} saved items`} couldn&apos;t
+        be loaded right now.{" "}
+        <button type="button" onClick={retryFailed} className="font-medium text-accent underline underline-offset-2">
+          Try again
+        </button>
+      </p>
+    )}
     <ul role="list" className="grid grid-cols-2 gap-x-4 gap-y-10 sm:gap-x-6 md:grid-cols-3 lg:grid-cols-4">
       {cards.map(({ id, result }) =>
         result.state === "loaded" ? (
@@ -147,5 +173,6 @@ export function WishlistView() {
         )
       )}
     </ul>
+    </>
   );
 }

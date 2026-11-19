@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StarRating } from "./StarRating";
 import type { Review, ReviewReply } from "@/types/review";
+import { formatDate } from "@/lib/utils/format";
 
 export interface ReviewCardOwnActions {
   onEdit?: (review: Review) => void;
@@ -29,8 +30,10 @@ export function ReviewCard({
   const [replyError, setReplyError] = useState<string | undefined>(undefined);
   const showActions = Boolean(onEdit || onDelete || (onReply && isLoggedIn));
   const wasEdited = review.updatedAt !== review.createdAt;
-  const createdLabel = new Date(review.createdAt).toLocaleDateString();
-  const updatedLabel = wasEdited ? new Date(review.updatedAt).toLocaleDateString() : "";
+  // formatDate returns "" for a missing/invalid timestamp (never "Invalid
+  // Date") and uses a fixed time zone so server and client agree.
+  const createdLabel = formatDate(review.createdAt);
+  const updatedLabel = wasEdited ? formatDate(review.updatedAt) : "";
 
   const handleReplySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,7 +202,7 @@ export function ReviewCard({
 }
 
 function ReplyItem({ reply }: { reply: ReviewReply }) {
-  const created = reply.createdAt ? new Date(reply.createdAt).toLocaleDateString() : "";
+  const created = reply.createdAt ? formatDate(reply.createdAt) : "";
   const isAdmin = reply.authorType === "admin";
 
   return (

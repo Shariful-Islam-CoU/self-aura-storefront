@@ -67,7 +67,9 @@ export function mapReviewResponse(response: ReviewResponse): Review {
 
   return {
     id: readString(response.id),
-    rating: normalizeRating(response.rating) ?? MIN_REVIEW_RATING,
+    // An invalid/missing rating renders as no stars - never as a genuine
+    // 1-star review.
+    rating: normalizeRating(response.rating) ?? 0,
     // Plain text only. React escapes it on render, and nothing here uses
     // dangerouslySetInnerHTML, so customer HTML can never execute.
     comment: readString(response.comment),

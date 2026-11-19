@@ -1,33 +1,46 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { CheckoutForm } from "@/features/checkout/components/CheckoutForm";
+import { CheckoutPreviewProvider } from "@/features/checkout/components/CheckoutPreviewContext";
+import type { UseCheckoutPreviewResult } from "@/features/checkout/hooks/useCheckoutPreview";
 
 /**
- * Storefront delivery-rules UI tests (Step 19A).
+ * Checkout delivery-option UI.
  *
- * These tests confirm the storefront renders the customer-safe delivery rules
- * list and that the checkout preview request is the sole source of pricing. The
- * backend does all arithmetic; the client sends nothing except the cart plus
- * the structured location.
+ * The preview hook is mocked so these tests control the rules and status
+ * directly; the backend preview remains the only source of pricing.
  */
 
-// Mock the useCheckoutPreview hook to control rules and status.
 const previewState = vi.hoisted(() => ({
-  rules: [] as Array<Record<string, unknown>>,
-  status: "idle" as "idle" | "calculating" | "ready" | "unavailable" | "error",
-  totals: null as any,
-  message: null as string | null,
-  districts: [] as string[],
-  areas: [] as string[],
+  status: "idle",
+  totals: null,
+  message: null,
+  rules: [],
+  selectedRuleId: null,
+  setSelectedRuleId: () => {},
   needsLocation: true,
   refresh: async () => {},
-}));
+})) as UseCheckoutPreviewResult;
 
 vi.mock("@/features/checkout/hooks/useCheckoutPreview", () => ({
   useCheckoutPreview: () => previewState,
 }));
 
-// Mock cart (empty so the form may render, but we don't require placing order).
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/checkout",
+}));
+
+// Payment settings: keep the form offline and deterministic.
+vi.mock("@/features/checkout/services/paymentSettingsService", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/checkout/services/paymentSettingsService")>();
+  return {
+    ...actual,
+    fetchPublicPaymentSettings: () => new Promise(() => {}),
+  };
+});
+
 vi.mock("@/features/cart/hooks/useCart", () => ({
   useCart: () => ({
     items: [],
@@ -37,48 +50,51 @@ vi.mock("@/features/cart/hooks/useCart", () => ({
   }),
 }));
 
-describe("Checkout delivery rules — display", () => {
-  it("renders the delivery charges list with Bangla name first", () => {
+function renderForm() {
+  return render(
+    <CheckoutPreviewProvider>
+      <CheckoutForm />
+    </CheckoutPreviewProvider>
+  );
+}
+
+beforeEach(() => {
+  previewState.rules = [];
+  previewState.selectedRuleId = null;
+  previewState.status = "idle";
+  previewState.totals = null;
+  previewState.message = null;
+});
+
+describe("Checkout delivery options", () => {
+  it("lists every active rule with its price, marking free delivery", () => {
     previewState.rules = [
-      {
-        name: "Tomsom Bridge",
-        nameBn: "টমছম ব্রিজ",
-        district: "Cumilla",
-        area: "Tomsom Bridge",
-        country: "Bangladesh",
-        charge: 0,
-        description: "Free delivery for Tomsom Bridge",
-        descriptionBn: "টমছম ব্রিজে ফ্রি ডেলিভারি",
-        displayOrder: 0,
-      },
-      {
-        name: "Cumilla Default",
-        district: "Cumilla",
-        country: "Bangladesh",
-        charge: 80,
-        displayOrder: 1,
-      },
+      { id: "r1", name: "Inside Dhaka", price: 80, estimatedMinDays: 1, estimatedMaxDays: 2 },
+      { id: "r2", name: "Tomsom Bridge", price: 0, estimatedMinDays: 2, estimatedMaxDays: 3 },
     ];
+    previewState.selectedRuleId = "r1";
 
-    render(<CheckoutForm />);
+    renderForm();
 
-    expect(screen.getByRole("heading", { name: /Delivery charges/ })).toBeTruthy();
-    // Bangla comes first when provided.
-    expect(screen.getByText(/টমছম ব্রিজ.*Tomsom Bridge/)).toBeTruthy();
-    expect(screen.getAllByText((content) => content.includes("Cumilla") && content.includes("Tomsom Bridge")).length).toBeGreaterThan(0);
-    expect(screen.getByText("Free")).toBeTruthy();
-    // A non-zero charge is shown in the list.
+    expect(screen.getByRole("radiogroup", { name: "Delivery options" })).toBeTruthy();
+    const dhaka = screen.getByRole("radio", { name: "Inside Dhaka" }) as HTMLInputElement;
+    expect(dhaka.checked).toBe(true);
+    expect(screen.getByText("FREE")).toBeTruthy();
     expect(screen.getAllByText((content) => content.includes("৳80")).length).toBeGreaterThan(0);
   });
 
-  it("shows the location-dependent warning copy when no quote yet", () => {
-    previewState.rules = [];
-    previewState.totals = null;
-    previewState.status = "idle";
+  it("explains when no delivery options are available", () => {
+    renderForm();
+    expect(screen.getByText(/No delivery options available/)).toBeTruthy();
+  });
 
-    render(<CheckoutForm />);
+  it("offers a retry when the delivery calculation fails", () => {
+    previewState.status = "error";
+    previewState.message = "We couldn't load the delivery options. Please try again.";
 
-    // The delivery panel explains the charge depends on the area.
-    expect(screen.getByText(/Delivery charge depends on your area/)).toBeTruthy();
+    renderForm();
+
+    expect(screen.getAllByText(/couldn't load the delivery options/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 });

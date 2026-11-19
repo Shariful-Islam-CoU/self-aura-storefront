@@ -50,6 +50,10 @@ export function useCheckoutPreview(params: {
 
   const [status, setStatus] = useState<CheckoutPreviewStatus>("idle");
   const [totals, setTotals] = useState<CheckoutPreviewTotals | null>(null);
+  /** requestKey the stored status/totals were computed for. */
+  const [resultKey, setResultKey] = useState<string | null>(null);
+  const [rulesFailed, setRulesFailed] = useState(false);
+  const [rulesAttempt, setRulesAttempt] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [rules, setRules] = useState<PublicDeliveryRule[]>([]);
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -77,23 +81,26 @@ export function useCheckoutPreview(params: {
   const latestKeyRef = useRef<string | null>(null);
   const needsLocation = enabled && !isUsableLocation(location);
 
-  // Load the delivery-rules reference list once for the checkout page.
-  // Failure is non-fatal: the customer can still type a location, and the
-  // preview remains the authority on whether it is deliverable and what it costs.
+  // Load the delivery-rules list once per attempt (not on every rule change).
+  // A failure surfaces as an error the customer can retry via `refresh`.
   useEffect(() => {
     let cancelled = false;
-    void fetchDeliveryRules().then((result) => {
-      if (cancelled) return;
-      setRules(result);
-      // Default to highest price (first in DESC sort)
-      if (result.length > 0 && selectedRuleId === null) {
-        setSelectedRuleId(result[0].id);
-      }
-    });
+    fetchDeliveryRules()
+      .then((result) => {
+        if (cancelled) return;
+        setRulesFailed(false);
+        setRules(result);
+        // Default to highest price (first in DESC sort), keeping any choice
+        // the customer already made.
+        setSelectedRuleId((current) => current ?? result[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setRulesFailed(true);
+      });
     return () => {
       cancelled = true;
     };
-  }, [selectedRuleId]);
+  }, [rulesAttempt]);
 
   const run = useCallback(async () => {
     if (!enabled || items.length === 0) {
@@ -126,11 +133,13 @@ export function useCheckoutPreview(params: {
 
       setTotals(result);
       setMessage(null);
+      setResultKey(requestKey);
       setStatus("ready");
     } catch (error) {
       if (latestKeyRef.current !== requestKey) return;
 
       setTotals(null);
+      setResultKey(requestKey);
 
       if (error instanceof ApiError && error.status === 400) {
         // The backend rejected the location/rule - no active rule covers it.
@@ -158,18 +167,42 @@ export function useCheckoutPreview(params: {
     return () => clearTimeout(timer);
   }, [run]);
 
+  const refresh = useCallback(async () => {
+    if (rulesFailed) {
+      setRulesAttempt((n) => n + 1);
+      return;
+    }
+    await run();
+  }, [rulesFailed, run]);
+
+  if (enabled && items.length > 0 && rulesFailed) {
+    return {
+      status: "error",
+      totals: null,
+      message: "We couldn't load the delivery options. Please try again.",
+      rules,
+      selectedRuleId,
+      setSelectedRuleId,
+      needsLocation,
+      refresh,
+    };
+  }
+
   // Active when there are items, a rule is selected, and enabled.
   // Location is NOT required for delivery calculation - only for order placement.
   const isActive = enabled && items.length > 0 && selectedRuleId !== null;
+  // Inputs changed since the stored result (e.g. during the debounce window):
+  // the old totals must not be presented as current or be submittable.
+  const isStale = status !== "calculating" && resultKey !== requestKey;
 
   return {
-    status: isActive ? status : "idle",
-    totals: isActive ? totals : null,
-    message: isActive ? message : null,
+    status: !isActive ? "idle" : isStale ? "calculating" : status,
+    totals: isActive && !isStale ? totals : null,
+    message: isActive && !isStale ? message : null,
     rules,
     selectedRuleId,
     setSelectedRuleId,
     needsLocation,
-    refresh: run,
+    refresh,
   };
 }

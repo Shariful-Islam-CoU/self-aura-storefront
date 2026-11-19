@@ -48,11 +48,11 @@ export interface AddToCartItem {
   quantity: number;
 }
 
-export type AddToCartErrorCode = "out-of-stock" | "invalid-quantity" | "unknown";
+export type AddToCartErrorCode = "out-of-stock" | "invalid-quantity" | "max-reached" | "unknown";
 
 export interface AddToCartResult {
   ok: boolean;
   error?: AddToCartErrorCode;
 }
 
-export type AddToCartStatus = "idle" | "adding" | "added" | "error";
+export type AddToCartStatus = "idle" | "adding" | "added" | "max-reached" | "error";

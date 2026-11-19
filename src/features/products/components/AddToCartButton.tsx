@@ -50,7 +50,7 @@ export function AddToCartButton({
       ) : (
         <ShoppingBag className={iconClass} aria-hidden="true" />
       )}
-      {isAdded ? "Added to bag" : "Add to bag"}
+      {isAdded ? "Added to bag" : status === "max-reached" ? "Max quantity in bag" : "Add to bag"}
     </Button>
   );
 }

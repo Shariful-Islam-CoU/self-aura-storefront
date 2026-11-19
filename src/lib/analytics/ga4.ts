@@ -29,12 +29,17 @@ function getMeasurementId(): string | null {
 function ensureGtag(): void {
   if (typeof window !== "undefined" && !window.gtag) {
     window.dataLayer = window.dataLayer || [];
-    window.gtag = function gtag(...args: unknown[]) {
-      (window.dataLayer as unknown[]).push(args);
+    // gtag.js only processes genuine `arguments` objects pushed onto the
+    // dataLayer - a plain array (e.g. from rest params) is silently ignored.
+    window.gtag = function gtag() {
+      // eslint-disable-next-line prefer-rest-params
+      window.dataLayer.push(arguments);
     };
     window.gtag("js", new Date());
   }
 }
+
+let initialized = false;
 
 function gtagEvent(eventName: string, parameters: Record<string, unknown>): void {
   if (typeof window !== "undefined" && window.gtag) {
@@ -240,7 +245,8 @@ function mapEvent<T extends StandardEventName>(
 export const ga4Provider = {
   init() {
     const measurementId = getMeasurementId();
-    if (!measurementId) return;
+    if (!measurementId || initialized) return;
+    initialized = true;
 
     ensureGtag();
     window.gtag("config", measurementId, {

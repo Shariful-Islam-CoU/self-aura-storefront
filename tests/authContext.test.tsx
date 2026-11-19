@@ -38,6 +38,7 @@ function advance(ms: number) {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.useFakeTimers();
 });
 
@@ -92,5 +93,35 @@ describe("AuthProvider login dialog", () => {
     advance(AUTO_OPEN_DELAY_MS * 2);
 
     expect(getByTestId("modal-state").textContent).toBe("closed");
+  });
+
+  it("stays closed when the provider remounts during a first-visit session", () => {
+    // (store) and /account each mount their own provider; navigating between
+    // them must not turn a brand-new visitor into a "returning" one.
+    const first = renderProvider();
+    advance(AUTO_OPEN_DELAY_MS * 2);
+    first.unmount();
+
+    const second = renderProvider();
+    advance(AUTO_OPEN_DELAY_MS * 2);
+
+    expect(second.getByTestId("modal-state").textContent).toBe("closed");
+  });
+
+  it("does not crash when storage is unavailable", () => {
+    const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    try {
+      const { getByTestId } = renderProvider();
+      advance(AUTO_OPEN_DELAY_MS * 2);
+      expect(getByTestId("modal-state").textContent).toBe("closed");
+    } finally {
+      getItem.mockRestore();
+      setItem.mockRestore();
+    }
   });
 });

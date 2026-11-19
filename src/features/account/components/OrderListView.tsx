@@ -144,7 +144,7 @@ export function OrderListView({ initialOrders }: OrderListViewProps) {
   };
 
   const handleTrackOrder = (orderNumber: string) => {
-    router.push(`/track-order?order=${orderNumber}`);
+    router.push(`/track-order?order=${encodeURIComponent(orderNumber)}`);
   };
 
   const filteredOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
@@ -245,7 +245,10 @@ export function OrderListView({ initialOrders }: OrderListViewProps) {
     );
   }
 
-  if (filteredOrders?.length === 0) {
+  // Nothing at all and no filter active: a genuinely empty history. With a
+  // search/status filter active, keep the toolbar so it can be cleared.
+  const hasActiveFilter = Boolean(searchQuery) || (statusFilter !== "" && statusFilter !== "all");
+  if (filteredOrders?.length === 0 && !hasActiveFilter) {
     return (
       <EmptyState
         icon={<Package className="h-6 w-6" />}
@@ -287,6 +290,29 @@ export function OrderListView({ initialOrders }: OrderListViewProps) {
           Showing {filteredOrders?.length} of {pagination?.total} order{pagination?.total !== 1 ? "s" : ""}
         </div>
       </div>
+
+      {filteredOrders?.length === 0 && (
+        <EmptyState
+          icon={<Package className="h-6 w-6" />}
+          title="No matching orders"
+          description={
+            searchQuery
+              ? `No orders found matching "${searchQuery}"`
+              : "No orders with this status on this page."
+          }
+          action={
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchQuery("");
+                handleStatusChange("all");
+              }}
+            >
+              Clear filters
+            </Button>
+          }
+        />
+      )}
 
       {/* Orders List */}
       <div className="space-y-4">

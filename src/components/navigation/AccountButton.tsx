@@ -6,6 +6,7 @@ import { User } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { customerAuthService, type Customer } from "@/services/customerAuthService";
+import { isAuthError } from "@/lib/api/client";
 
 const actionClass =
   "inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
@@ -20,7 +21,7 @@ const actionClass =
  * picture) the usual person icon is shown.
  */
 export function AccountButton() {
-  const { isLoggedIn, openLoginModal } = useAuth();
+  const { isLoggedIn, openLoginModal, signOut } = useAuth();
   const [profile, setProfile] = useState<Customer | null>(null);
 
   useEffect(() => {
@@ -35,14 +36,16 @@ export function AccountButton() {
       .then((result) => {
         if (!cancelled) setProfile(result.customer);
       })
-      .catch(() => {
-        // Fall back to the generic account icon; never surface the error here.
+      .catch((error) => {
+        // An expired/invalid session: reflect it in the header right away.
+        // Anything else falls back to the generic icon silently.
+        if (!cancelled && isAuthError(error)) signOut();
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, signOut]);
 
   if (isLoggedIn) {
     return (

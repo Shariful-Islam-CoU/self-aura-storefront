@@ -9,6 +9,7 @@ import { Input } from "./Input";
 import { customerAuthService, AuthResult } from "@/services/customerAuthService";
 import { GoogleButton } from "@/features/account/components/GoogleButton";
 import { useRouter, useSearchParams } from "next/navigation";
+import { safeRedirectPath } from "@/lib/utils/url";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -42,7 +43,9 @@ export function LoginModal({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Priority: prop > searchParams > default / (home)
-  const redirectUrl = propRedirectUrl || searchParams.get("redirect") || "/";
+  // No explicit target (e.g. the auto-opened dialog): stay on this page.
+  const requestedRedirect = propRedirectUrl || searchParams.get("redirect");
+  const redirectUrl = requestedRedirect ? safeRedirectPath(requestedRedirect) : null;
 
   const handleSwitchMode = () => {
     setMode(mode === "login" ? "register" : "login");
@@ -83,10 +86,10 @@ export function LoginModal({
       // Let the parent react first (e.g. close the modal in-place on /checkout),
       // then navigate for the pages that rely on a redirect.
       onSuccess?.();
-      router.push(redirectUrl);
+      if (redirectUrl) router.push(redirectUrl);
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
     }
   };
@@ -101,12 +104,12 @@ export function LoginModal({
       onSuccess?.();
       if (result.customer.mustChangePassword) {
         router.push("/account/edit?changePassword=1");
-      } else {
+      } else if (redirectUrl) {
         router.push(redirectUrl);
       }
       router.refresh();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
     }
   };

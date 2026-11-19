@@ -151,11 +151,13 @@ export function CheckoutForm() {
 
           setValues((v) => ({
             ...v,
+            // Only fill fields the customer has not typed into yet.
             customer: {
-              fullName: customer.name || "",
-              phone: customer.phone || "",
-              facebookName: customer.facebookName || "",
-              facebookProfileUrl: customer.facebookProfileUrl || "",
+              fullName: v.customer.fullName || customer.name || "",
+              phone: v.customer.phone || customer.phone || "",
+              facebookName: v.customer.facebookName || customer.facebookName || "",
+              facebookProfileUrl:
+                v.customer.facebookProfileUrl || customer.facebookProfileUrl || "",
             },
             // Prefill the delivery address from the customer's saved address, if
             // any. Each field is only filled while still empty, so this can
@@ -167,7 +169,10 @@ export function CheckoutForm() {
               district: v.address.district || saved?.district || "",
               city: v.address.city || saved?.city || "",
               postalCode: v.address.postalCode || saved?.postalCode || "",
-              country: saved?.country || v.address.country,
+              country:
+                v.address.country && v.address.country !== "Bangladesh"
+                  ? v.address.country
+                  : saved?.country || v.address.country,
             },
           }));
         })
@@ -270,9 +275,19 @@ export function CheckoutForm() {
               ? settings.bkash.enabled
               : settings.nagad.enabled;
         if (!enabled) {
+          // Fall back to the first method that IS enabled (not blindly COD,
+          // which may itself be disabled).
+          const fallback =
+            CHECKOUT_PAYMENT_METHODS.find((method) =>
+              method === "cod"
+                ? settings.cod.enabled
+                : method === "bkash"
+                  ? settings.bkash.enabled
+                  : settings.nagad.enabled
+            ) ?? "cod";
           setValues((v) => ({
             ...v,
-            paymentMethod: "cod",
+            paymentMethod: fallback,
             manualPayment: { transactionId: "", senderPhone: "" },
           }));
           setErrors((e) => ({ ...e, transactionId: undefined, senderPhone: undefined }));
@@ -292,6 +307,12 @@ export function CheckoutForm() {
   }, [settingsRetryKey]);
 
   const settings: PublicPaymentSettings = paymentSettings ?? FALLBACK_PUBLIC_PAYMENT_SETTINGS;
+
+  /** A wallet method is selected but Self Aura has no number to pay to. */
+  const manualMethodNumberMissing =
+    !settingsLoading &&
+    isManualPaymentMethod(values.paymentMethod) &&
+    !(values.paymentMethod === "bkash" ? settings.bkash.number : settings.nagad.number);
 
   /** Methods currently offered, per the backend configuration. */
   const availableMethods = useMemo(
@@ -346,6 +367,26 @@ export function CheckoutForm() {
     if (submittingRef.current) return;
     // No payment method is configured as available right now.
     if (availableMethods.length === 0) return;
+    // The selected method must be one that is currently offered.
+    if (!availableMethods.includes(values.paymentMethod)) {
+      setSubmitError({
+        category: "validation",
+        title: "Choose a payment method",
+        description: "Please select one of the available payment methods.",
+        reviewCart: false,
+      });
+      return;
+    }
+    // A wallet payment needs Self Aura's number to pay to.
+    if (manualMethodNumberMissing) {
+      setSubmitError({
+        category: "validation",
+        title: "Payment method unavailable",
+        description: "This payment method isn't set up right now. Please choose another.",
+        reviewCart: false,
+      });
+      return;
+    }
 
     const validation = validateCheckoutForm(values);
     setErrors(validation.errors);
@@ -627,7 +668,7 @@ export function CheckoutForm() {
         {isManualPaymentMethod(values.paymentMethod) && (
           <ManualPaymentPanel
             method={values.paymentMethod}
-            subtotal={subtotal}
+            total={preview.totals?.total ?? null}
             loading={settingsLoading}
             paymentNumber={
               values.paymentMethod === "bkash" ? settings.bkash.number : settings.nagad.number
@@ -762,7 +803,14 @@ export function CheckoutForm() {
         )}
         {preview.status === "error" && (
           <p role="alert" className="mt-3 text-center text-xs leading-relaxed text-destructive">
-            {preview.message ?? "Unable to calculate delivery. Please try again."}
+            {preview.message ?? "Unable to calculate delivery. Please try again."}{" "}
+            <button
+              type="button"
+              onClick={() => void preview.refresh()}
+              className="font-medium underline underline-offset-2"
+            >
+              Try again
+            </button>
           </p>
         )}
         {canPlaceOrder && (
@@ -981,8 +1029,11 @@ function ChoiceOption({ name, value, checked, title, description, onChange }: Ch
 
 interface ManualPaymentPanelProps {
   method: CheckoutPaymentMethod;
-  /** Current checkout amount - shown so the customer sends the right sum. */
-  subtotal: number;
+  /**
+   * Backend-confirmed order total (incl. delivery and discount), or null while
+   * it is still being calculated - shown so the customer sends the right sum.
+   */
+  total: number | null;
   /**
    * Merchant receiving number for this method, fetched from the backend
    * public payment-settings endpoint - never hardcoded in the UI.
@@ -1011,7 +1062,7 @@ interface ManualPaymentPanelProps {
  */
 function ManualPaymentPanel({
   method,
-  subtotal,
+  total,
   paymentNumber,
   loading,
   transactionId,
@@ -1076,7 +1127,9 @@ function ManualPaymentPanel({
 
       <div className="mt-4 rounded-md border border-border bg-card p-4">
         <p className="text-sm text-muted-foreground">
-          Send the exact order amount ({formatPrice(subtotal)}) to:
+          {total !== null
+            ? `Send the exact order amount (${formatPrice(total)}) to:`
+            : "The exact amount to send will appear once delivery is calculated. Send it to:"}
         </p>
         {loading ? (
           <p className="mt-2 text-sm text-muted-foreground">Loading payment details…</p>

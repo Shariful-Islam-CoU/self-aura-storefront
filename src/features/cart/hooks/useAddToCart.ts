@@ -15,7 +15,7 @@ import type { AddToCartResult, AddToCartStatus } from "../types";
  * render, and drives the transient status (idle -> adding -> added).
  */
 export function useAddToCart(product: Product, quantity: number) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const [status, setStatus] = useState<AddToCartStatus>("idle");
   const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -34,6 +34,16 @@ export function useAddToCart(product: Product, quantity: number) {
       return { ok: false, error: "invalid-quantity" };
     }
 
+    // The cart caps a line at stock; tell the customer instead of claiming
+    // "Added to bag" when nothing (or less than requested) was added.
+    const inBag = items.find((item) => item.key === product.id)?.quantity ?? 0;
+    if (inBag + quantity > product.stock) {
+      setStatus("max-reached");
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      resetTimer.current = setTimeout(() => setStatus("idle"), 2600);
+      return { ok: false, error: "max-reached" };
+    }
+
     setStatus("adding");
     // The cart service still validates the payload shape - the seam the
     // future Cart API will extend.
@@ -50,7 +60,7 @@ export function useAddToCart(product: Product, quantity: number) {
     if (resetTimer.current) clearTimeout(resetTimer.current);
     resetTimer.current = setTimeout(() => setStatus("idle"), 2600);
     return { ok: true };
-  }, [product, quantity, addItem]);
+  }, [product, quantity, addItem, items]);
 
   return { status, addToCart };
 }

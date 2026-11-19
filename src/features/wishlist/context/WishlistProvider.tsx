@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import type { ReactNode } from "react";
-import { loadWishlistIds, saveWishlistIds } from "../services/wishlistStorage";
+import { loadWishlistIds, saveWishlistIds, WISHLIST_STORAGE_KEY } from "../services/wishlistStorage";
 import { WishlistContext } from "./WishlistContext";
 import type { WishlistContextValue } from "./WishlistContext";
 import type { WishlistState } from "../types";
@@ -61,6 +61,18 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   // Client-only hydration from the persisted wishlist.
   useEffect(() => {
     dispatch({ type: "hydrate", productIds: loadWishlistIds() ?? [] });
+  }, []);
+
+  // Follow edits made in other tabs; without this, each tab would overwrite
+  // the other's additions with its own stale list.
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === WISHLIST_STORAGE_KEY) {
+        dispatch({ type: "hydrate", productIds: loadWishlistIds() ?? [] });
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   // Keep localStorage in sync with every change (only after hydration).

@@ -60,12 +60,17 @@ export function cartReducer(state: CartReducerState, action: CartAction): CartRe
         };
       }
 
-      // Merge: same product -> increase quantity (capped at stock).
+      // Merge: same product -> increase quantity (capped at stock). The
+      // incoming snapshot is the fresher one, so it replaces the stored
+      // product (price/stock) - otherwise the line would keep a stale stock
+      // that no longer matches its own quantity.
       const mergedQuantity = Math.min(existing.quantity + item.quantity, max);
       return {
         ...state,
         items: state.items.map((entry) =>
-          entry.key === item.key ? { ...entry, quantity: mergedQuantity } : entry
+          entry.key === item.key
+            ? { ...entry, product: item.product, quantity: mergedQuantity }
+            : entry
         ),
       };
     }
@@ -134,4 +139,16 @@ export function cartSubtotal(items: CartItem[]): number {
 /** True when any line references an unavailable product. */
 export function cartHasUnavailable(items: CartItem[]): boolean {
   return items.some((item) => item.product.stock <= 0);
+}
+/**
+ * Merges a guest cart into an account cart (used when a guest signs in).
+ * Lines for the same product combine, capped at the freshest known stock;
+ * unavailable guest lines are dropped.
+ */
+export function mergeCartItems(accountItems: CartItem[], guestItems: CartItem[]): CartItem[] {
+  let state: CartReducerState = { items: accountItems, hydrated: true, storageKey: null };
+  for (const item of guestItems) {
+    state = cartReducer(state, { type: "add", item });
+  }
+  return state.items;
 }

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Separator } from "@/components/ui/Separator";
 import { GoogleButton } from "./GoogleButton";
 import { customerAuthService } from "@/services/customerAuthService";
+import { safeRedirectPath } from "@/lib/utils/url";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -30,8 +31,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       window.location.href = "/account/edit?changePassword=1";
       return;
     }
-    const redirect = new URLSearchParams(window.location.search).get("redirect") || "/";
-    window.location.href = redirect;
+    window.location.href = safeRedirectPath(
+      new URLSearchParams(window.location.search).get("redirect"),
+    );
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -63,8 +65,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         localStorage.setItem("customer_token", result.token);
         redirectAfterAuth(result);
       }
-    } catch (err: any) {
-      setNotice(err.message || "Authentication failed");
+    } catch (err) {
+      setNotice(err instanceof Error && err.message ? err.message : "Authentication failed");
     }
   }
 
@@ -169,8 +171,8 @@ export function AuthForm({ mode }: AuthFormProps) {
             const result = await customerAuthService.googleAuth(credential);
             localStorage.setItem("customer_token", result.token);
             redirectAfterAuth(result);
-          } catch (err: any) {
-            setNotice(err.message || "Google authentication failed");
+          } catch (err) {
+            setNotice(err instanceof Error && err.message ? err.message : "Google authentication failed");
           }
         }}
         onError={() => setNotice("Google authentication failed")}

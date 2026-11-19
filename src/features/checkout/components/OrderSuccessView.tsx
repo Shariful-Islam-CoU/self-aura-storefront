@@ -48,11 +48,14 @@ export function OrderSuccessView({ orderNumber }: OrderSuccessViewProps) {
     // sessionStorage is a client-side external store - read it after mount
     // (one tick) so the server-rendered skeleton never mismatches.
     const id = window.setTimeout(() => {
-      setHandoff(readOrderHandoff());
+      const stored = readOrderHandoff();
+      // Only show the stored details when they belong to THIS order number;
+      // otherwise an older URL would display a newer order's details.
+      setHandoff(stored && stored.order.orderNumber === orderNumber ? stored : null);
       setLoaded(true);
     }, 0);
     return () => window.clearTimeout(id);
-  }, []);
+  }, [orderNumber]);
 
   return (
     <Container className="py-10 sm:py-16">
@@ -80,8 +83,8 @@ function SuccessContent({ handoff }: { handoff: OrderHandoff }) {
   const manualPayment = isManualPaymentMethod(paymentMethod);
   const paymentMethodLabel =
     paymentMethod === "cod" ? PAYMENT_METHOD_LABELS.cash_on_delivery : CHECKOUT_PAYMENT_LABELS[paymentMethod];
-  const recipientName = order.customer.name ?? order.shippingAddress.recipientName;
-  const phone = order.shippingAddress.phone ?? order.customer.phone;
+  const recipientName = order.shippingAddress.recipientName ?? order.customer?.name;
+  const phone = order.shippingAddress.phone ?? order.customer?.phone;
   const addressParts = [
     order.shippingAddress.addressLine,
     order.shippingAddress.area,

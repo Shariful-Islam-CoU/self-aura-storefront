@@ -1,33 +1,32 @@
 /**
  * Bangladesh phone helpers for the checkout form.
  *
- * Self Aura is a Bangladesh-based business. The backend stores the phone
- * string as typed (its validator only checks the digit count, 7..15) - so
- * normalization never needs to corrupt the value: we trim and collapse
- * common separator characters, keep a legitimate leading "+", and let the
- * customer's own format through.
+ * Self Aura is a Bangladesh-based business. Numbers are
+ * normalised to digits (plus an optional leading "+") before being sent.
  */
 
-const DIGITS_ONLY = /\D/g;
-const SEPARATORS = /[\s()\-]/g;
+/** Valid BD mobile: optional +88 / 88, then 01[3-9] and 8 more digits. */
+const BD_MOBILE = /^(?:\+?88)?01[3-9]\d{8}$/;
 
-/** Trim + collapse spaces/dashes/parens. Keeps a leading "+" intact. */
+/**
+ * Strips everything except digits, keeping a single leading "+".
+ * "+880 1712-345 678" -> "+8801712345678".
+ */
 export function normalizeBangladeshPhone(value: string): string {
-  return value.trim().replace(SEPARATORS, "");
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, "");
+  return trimmed.startsWith("+") ? `+${digits}` : digits;
 }
 
 /**
- * Accepts the common self-service formats:
- *   01XXXXXXXXX    - 11-digit local
- *   +8801XXXXXXXXX - 13-digit international
- * plus a lenient 11..15 digit fallback so legitimate numbers are never
- * over-restricted (the backend itself allows 7..15 digits).
+ * Accepts Bangladeshi mobile numbers in the common self-service formats:
+ *   01XXXXXXXXX     - 11-digit local
+ *   8801XXXXXXXXX   - without "+"
+ *   +8801XXXXXXXXX  - international
+ * The operator digit must be 3-9 (013..019). Letters or other junk are
+ * rejected rather than silently stripped.
  */
 export function isValidBangladeshPhone(value: string): boolean {
-  const normalized = normalizeBangladeshPhone(value);
-  const digits = normalized.replace(DIGITS_ONLY, "");
-  if (digits.length === 0) return false;
-  if (/^01\d{9}$/.test(normalized)) return true;
-  if (/^\+8801\d{9}$/.test(normalized)) return true;
-  return digits.length >= 11 && digits.length <= 15;
+  if (/[^\d\s()+\-.]/.test(value.trim())) return false;
+  return BD_MOBILE.test(normalizeBangladeshPhone(value));
 }

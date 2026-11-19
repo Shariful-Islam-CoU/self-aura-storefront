@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { customerAuthService, Customer } from "@/services/customerAuthService";
+import { isAuthError } from "@/lib/api/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -16,6 +18,7 @@ export default function ChangePasswordPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null);
+  const { signOut } = useAuth();
 
   useEffect(() => {
     const token = localStorage.getItem("customer_token");
@@ -30,10 +33,15 @@ export default function ChangePasswordPage() {
         setLoading(false);
       })
       .catch((err) => {
-        localStorage.removeItem("customer_token");
-        router.push("/login?redirect=/account/change-password");
+        if (isAuthError(err)) {
+          signOut();
+          router.push("/login?redirect=/account/change-password");
+          return;
+        }
+        setPasswordNotice(err.message || "We couldn't load your account. Please try again.");
+        setLoading(false);
       });
-  }, [router]);
+  }, [router, signOut]);
 
   const handleChangePassword = async () => {
     const token = localStorage.getItem("customer_token");
@@ -64,8 +72,8 @@ export default function ChangePasswordPage() {
       if (customer?.mustChangePassword) {
         router.push("/account");
       }
-    } catch (err: any) {
-      setPasswordNotice(err.message || "Failed to change password");
+    } catch (err) {
+      setPasswordNotice(err instanceof Error && err.message ? err.message : "Failed to change password");
     } finally {
       setChangingPassword(false);
     }
@@ -125,7 +133,7 @@ export default function ChangePasswordPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                localStorage.removeItem("customer_token");
+                signOut();
                 router.push("/login");
               }}
             >

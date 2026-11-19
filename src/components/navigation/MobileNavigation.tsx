@@ -37,6 +37,14 @@ export function MobileNavigation() {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Close the drawer whenever the route changes (Back/Forward included), so
+  // the page is never left scroll-locked behind a drawer the user can't see.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (lastPathname !== pathname) {
+    setLastPathname(pathname);
+    setOpen(false);
+  }
+
   const ordersActive =
     pathname === "/account/orders" || pathname.startsWith("/account/orders/");
   const accountActive = pathname === "/account";

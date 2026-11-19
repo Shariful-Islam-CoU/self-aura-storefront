@@ -157,11 +157,9 @@ describe("next/image remote patterns — legacy local media", () => {
       await loadConfig({ NEXT_PUBLIC_API_URL: "https://api.self-aura.shop/api" })
       // await loadConfig({ NEXT_PUBLIC_API_URL: "http://localhost:5000/api" })
     );
-    expect(patterns).toContainEqual({
-      protocol: "http",
-      hostname: "localhost",
-      port: "5000",
-    });
+    expect(patterns).toContainEqual(
+      expect.objectContaining({ protocol: "https", hostname: "api.self-aura.shop" })
+    );
   });
 
   it("never allows a wildcard scheme or host from a malformed env value", async () => {

@@ -5,13 +5,14 @@ import type { ReactNode } from "react";
 import type { Product } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CUSTOMER_TOKEN_KEY, getActiveCustomerId } from "@/lib/auth/customerToken";
-import { cartStorageKeyFor, loadCart, saveCart } from "../services/cartStorage";
+import { CART_STORAGE_KEY, cartStorageKeyFor, loadCart, saveCart } from "../services/cartStorage";
 import {
   buildCartItem,
   cartHasUnavailable,
   cartItemCount,
   cartReducer,
   cartSubtotal,
+  mergeCartItems,
 } from "./cartReducer";
 import type { CartReducerState } from "./cartReducer";
 import { CartContext } from "./CartContext";
@@ -51,9 +52,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
    */
   const syncCart = useCallback(() => {
     const storageKey = cartStorageKeyFor(getActiveCustomerId());
-    if (activeKeyRef.current === storageKey) return;
+    const previousKey = activeKeyRef.current;
+    if (previousKey === storageKey) return;
     activeKeyRef.current = storageKey;
-    dispatch({ type: "hydrate", items: loadCart(storageKey) ?? [], storageKey });
+
+    let items = loadCart(storageKey) ?? [];
+    // Guest -> customer (e.g. signing in from the checkout modal): carry the
+    // guest's items over instead of silently swapping to the account cart,
+    // then empty the guest cart so they are not merged twice.
+    if (previousKey === CART_STORAGE_KEY && storageKey !== CART_STORAGE_KEY) {
+      const guestItems = loadCart(CART_STORAGE_KEY) ?? [];
+      if (guestItems.length > 0) {
+        items = mergeCartItems(items, guestItems);
+        saveCart(storageKey, items);
+        saveCart(CART_STORAGE_KEY, []);
+      }
+    }
+    dispatch({ type: "hydrate", items, storageKey });
   }, []);
 
   // Initial hydration + re-sync whenever the signed-in state flips.

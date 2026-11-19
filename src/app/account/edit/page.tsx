@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
 import { LoadingState } from "@/components/ui/LoadingState";
 import { useRouter } from "next/navigation";
+import { isAuthError } from "@/lib/api/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function EditAccountPage() {
   const router = useRouter();
@@ -16,6 +18,12 @@ export default function EditAccountPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const { signOut } = useAuth();
+
+  // A staff-issued one-time password must be replaced first.
+  useEffect(() => {
+    if (customer?.mustChangePassword) router.replace("/account/change-password");
+  }, [customer?.mustChangePassword, router]);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -52,7 +60,7 @@ export default function EditAccountPage() {
       customerAuthService.getAddresses(token).catch(() => ({ addresses: [] })),
     ])
       .then(([meRes, addrRes]) => {
-        const cust = meRes.customer as any;
+        const cust = meRes.customer;
         setCustomer(meRes.customer);
         setForm({
           name: cust.name || "",
@@ -91,10 +99,12 @@ export default function EditAccountPage() {
       .catch((err) => {
         setError(err.message);
         setLoading(false);
-        localStorage.removeItem("customer_token");
-        router.push("/login");
+        if (isAuthError(err)) {
+          signOut();
+          router.push("/login?redirect=/account/edit");
+        }
       });
-  }, [router]);
+  }, [router, signOut]);
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -128,10 +138,11 @@ export default function EditAccountPage() {
       setAvatarUrl(result.customer.avatarUrl ?? null);
       setIsGoogleAvatar(false);
       setAvatarPreview(null);
-    } catch (err: any) {
-      setError(err.message || "Failed to upload avatar");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload avatar");
       setAvatarPreview(null);
     } finally {
+      URL.revokeObjectURL(previewUrl);
       setAvatarUploading(false);
       // Reset file input
       if (fileInputRef.current) {
@@ -150,26 +161,10 @@ export default function EditAccountPage() {
       await customerAuthService.deleteAvatar(token);
       setAvatarUrl(null);
       setIsGoogleAvatar(false);
-    } catch (err: any) {
-      setError(err.message || "Failed to remove avatar");
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : "Failed to remove avatar");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleUseGoogleAvatar = async () => {
-    const token = localStorage.getItem("customer_token");
-    if (!token) return;
-
-    // Get the Google avatar URL from the current customer data
-    try {
-      const meRes = await customerAuthService.getMe(token);
-      const cust = meRes.customer as any;
-      // The Google avatar would have been stored during Google auth
-      // If we're here, we want to restore it
-      // This is a placeholder - actual logic depends on how we store the Google avatar
-    } catch (err) {
-      console.error("Failed to get Google avatar", err);
     }
   };
 
@@ -238,9 +233,9 @@ export default function EditAccountPage() {
   if (loading) return <LoadingState label="Loading your profile..." />;
 
   // Staff reset the password to a one-time value. The backend blocks every
-  // other action until it is replaced, so redirect to the dedicated page.
+  // other action until it is replaced, so redirect to the dedicated page
+  // (the navigation itself happens in an effect, never during render).
   if (customer?.mustChangePassword) {
-    router.replace("/account/change-password");
     return <LoadingState label="Redirecting..." />;
   }
 

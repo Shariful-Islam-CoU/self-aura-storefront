@@ -12,6 +12,7 @@ import { ProductInfo } from "@/features/products/components/ProductInfo";
 import { RelatedProducts } from "@/features/products/components/RelatedProducts";
 import { ProductReviews } from "@/features/reviews/components/ProductReviews";
 import { siteConfig } from "@/lib/config/env";
+import { serializeJsonLd } from "@/lib/utils/url";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
@@ -50,9 +51,6 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     ? product.description.replace(/\s+/g, " ").trim().slice(0, 160)
     : `Shop ${product.name} from the ${product.category.name ?? "Self Aura"} collection.`;
 
-  // Build JSON-LD structured data for Product schema
-  const structuredData = buildProductStructuredData(product);
-
   return {
     title: product.name,
     description,
@@ -76,9 +74,6 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
         const primary = getPrimaryImage(product.images);
         return primary ? [primary.url] : undefined;
       })(),
-    },
-    other: {
-      "script:ld+json": structuredData,
     },
   };
 }
@@ -136,7 +131,7 @@ function buildProductStructuredData(product: {
       name: "Self Aura",
     },
     category: product.category.name,
-    images: product.images.length > 0
+    image: product.images.length > 0
       ? product.images.map((img) => img.url)
       : primaryImage
         ? [primaryImage.url]
@@ -146,7 +141,7 @@ function buildProductStructuredData(product: {
     mpn: product.sku,
   };
 
-  return JSON.stringify(data);
+  return serializeJsonLd(data);
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
@@ -164,7 +159,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // fallback, which reads as a broken page. Handling it here keeps the site
   // chrome and gives the customer a real message plus a retry.
   if (!result.ok) {
-    return <CatalogError error={result.error} action="load" contained />;
+    return (
+      <CatalogError
+        error={result.error}
+        action="load"
+        contained
+        retryHref={`/products/${encodeURIComponent(slug)}`}
+      />
+    );
   }
 
   const { product, related } = result.value;

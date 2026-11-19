@@ -146,7 +146,7 @@ export function mapCategoryThumbnail(
 }
 
 export function mapCategoryBanner(
-  banner: any | undefined | null,
+  banner: CategoryResponse["banner"] | null,
   categoryName: string
 ): Category["banner"] {
   const url = resolveMediaUrl(banner?.url);
@@ -158,7 +158,7 @@ export function mapCategoryBanner(
 }
 
 export function mapCategoryResponse(category: CategoryResponse): Category {
-  const { thumbnail: wire, banner: wireBanner, ...rest } = category as any;
+  const { thumbnail: wire, banner: wireBanner, ...rest } = category;
   const thumbnail = mapCategoryThumbnail(wire, category.name);
   const banner = mapCategoryBanner(wireBanner, category.name);
   return {

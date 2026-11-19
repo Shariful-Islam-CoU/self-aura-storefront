@@ -60,7 +60,14 @@ export const REVIEWS_INITIAL_STATE: ReviewsState = {
 /** Exported for testability, mirroring the cart/wishlist provider precedent. */
 export type ReviewsAction =
   | { type: "loading" }
-  | { type: "loaded"; payload: ProductReviewsDataResponse; append: boolean }
+  | {
+      type: "loaded";
+      payload: ProductReviewsDataResponse;
+      append: boolean;
+      /** For appends: the sort/attempt the page was requested under. */
+      forSort?: ReviewSort;
+      forAttempt?: number;
+    }
   | { type: "failed"; error: ReviewError }
   | { type: "loadMoreStart" }
   | { type: "loadMoreFailed"; error: ReviewError }
@@ -68,6 +75,8 @@ export type ReviewsAction =
   | { type: "submitting" }
   | { type: "submitSucceeded" }
   | { type: "submitFailed"; error: ReviewError }
+  /** A reply/delete succeeded: not a new review, so no "Thanks" banner. */
+  | { type: "actionSucceeded" }
   | { type: "startEdit"; reviewId: string }
   | { type: "cancelEdit" }
   | { type: "refresh" }
@@ -80,8 +89,21 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
     case "loading":
       return { ...state, status: "loading", error: null };
     case "loaded": {
+      // A "load more" that was requested before the sort changed (or a
+      // refresh happened) belongs to a different list - drop it.
+      if (
+        action.append &&
+        ((action.forSort !== undefined && action.forSort !== state.sort) ||
+          (action.forAttempt !== undefined && action.forAttempt !== state.attempt))
+      ) {
+        return { ...state, loadingMore: false };
+      }
       const { summary, items, pagination } = action.payload;
-      const reviews = items.map(mapReviewResponse);
+      const mapped = items.map(mapReviewResponse);
+      // Offsets can shift between pages (a newly approved review), so the
+      // same review may come back twice; keep ids unique.
+      const known = new Set(action.append ? state.reviews.map((r) => r.id) : []);
+      const reviews = mapped.filter((review) => !known.has(review.id));
       return {
         ...state,
         status: "ready",
@@ -120,6 +142,8 @@ export function reviewsReducer(state: ReviewsState, action: ReviewsAction): Revi
       return { ...state, submitStatus: "saved", submitError: null, editingId: null, replyingToId: null };
     case "submitFailed":
       return { ...state, submitStatus: "idle", submitError: action.error };
+    case "actionSucceeded":
+      return { ...state, submitStatus: "idle", submitError: null, editingId: null, replyingToId: null };
     case "startEdit":
       return { ...state, editingId: action.reviewId, submitStatus: "idle", submitError: null, replyingToId: null };
     case "cancelEdit":
@@ -207,20 +231,24 @@ export function useProductReviews(
     if (!enabled || loadingMore) return;
     dispatch({ type: "loadMoreStart" });
 
+    const forSort = sort;
+    const forAttempt = attempt;
     fetchProductReviews({ productId, page: page + 1, limit: REVIEWS_PAGE_SIZE, sort })
       .then((payload) => {
-        dispatch({ type: "loaded", payload, append: true });
+        dispatch({ type: "loaded", payload, append: true, forSort, forAttempt });
       })
       .catch((error: unknown) => {
         dispatch({ type: "loadMoreFailed", error: toReviewError(error, "load") });
       });
-  }, [enabled, loadingMore, productId, page, sort]);
+  }, [enabled, loadingMore, productId, page, sort, attempt]);
 
   const changeSort = useCallback((nextSort: ReviewSort) => {
     dispatch({ type: "setSort", sort: nextSort });
   }, []);
 
   const retry = useCallback(() => {
+    // Show the loading state while the retry is in flight.
+    dispatch({ type: "loading" });
     dispatch({ type: "refresh" });
   }, []);
 
@@ -270,7 +298,7 @@ export function useProductReviews(
       dispatch({ type: "submitting" });
       try {
         await deleteReviewRequest(review.id);
-        dispatch({ type: "submitSucceeded" });
+        dispatch({ type: "actionSucceeded" });
         dispatch({ type: "refresh" });
       } catch (error: unknown) {
         dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
@@ -299,15 +327,11 @@ export function useProductReviews(
   const replyToReview = useCallback(
     async (review: Review, text: string) => {
       if (!enabled) return;
-      dispatch({ type: "submitting" });
-      try {
-        await createReply(review.id, { text: text.trim() });
-        dispatch({ type: "submitSucceeded" });
-        dispatch({ type: "refresh" });
-      } catch (error: unknown) {
-        dispatch({ type: "submitFailed", error: toReviewError(error, "submit") });
-        throw error;
-      }
+      // Reply state lives in ReviewCard (its own pending/error UI), so a
+      // reply never touches the create-review form's status or error.
+      await createReply(review.id, { text: text.trim() });
+      dispatch({ type: "actionSucceeded" });
+      dispatch({ type: "refresh" });
     },
     [enabled]
   );

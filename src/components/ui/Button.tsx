@@ -38,9 +38,13 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     if (asChild) {
       const child = Children.only(children);
       if (!isValidElement(child)) return null;
-      const childElement = child as ReactElement<{ className?: string }>;
+      const childElement = child as ReactElement<Record<string, unknown> & { className?: string }>;
+      // Forward everything the caller passed (onClick, aria-*, data-*, ref);
+      // the child's own props win on conflict, classes are merged.
       return cloneElement(childElement, {
+        ...props,
         ...childElement.props,
+        ref,
         className: cn(classes, childElement.props.className),
       });
     }

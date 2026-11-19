@@ -150,7 +150,8 @@ function ReviewsList({
               review={review}
               onEdit={review.isOwnReview ? reviews.startEdit : undefined}
               onDelete={review.isOwnReview ? reviews.removeReview : undefined}
-              onReply={reviews.replyToReview}
+              // The backend only accepts replies from the review's author.
+              onReply={review.isOwnReview ? reviews.replyToReview : undefined}
               isLoggedIn={isLoggedIn}
             />
           </li>
@@ -227,6 +228,7 @@ function ReviewEntry({
               type="button"
               variant="ghost"
               onClick={() => {
+                if (!window.confirm("Delete your review? This can't be undone.")) return;
                 void reviews.removeReview(ownReview).catch(() => {
                   // Surfaced through submitError above; swallow to avoid an
                   // unhandled rejection.
